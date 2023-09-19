@@ -1633,17 +1633,26 @@ class FNGBKTOutput(OktavianOutput):
                 else:
                     t = (mat, lib_names_dict[idx_col[0]])
                     if idx_col[1] == 'Value':
-                        vals = self.raw_data[t][4]['Value'].values[:len(x)]
+                        if mat != 'TLD':
+                            vals = self.raw_data[t][4]['Value'].values[:len(x)]
+                        else:
+                            vals = self.raw_data[t][6]['Value'].values[:len(x)]
                         df_tab[idx_col] = vals
                     elif idx_col[1] == 'C/E Error':
-                        errs = self.raw_data[t][4]['Error'].values[:len(x)]
+                        if mat != 'TLD':
+                            errs = self.raw_data[t][4]['Error'].values[:len(x)]
+                        else:
+                            errs = self.raw_data[t][6]['Error'].values[:len(x)]
                         vals1 = np.square(errs)
                         vals2 = np.square(exp_data_df.loc[:, 'Error'].to_numpy() / 100)
                         ce_err = np.sqrt(vals1 + vals2)
                         ce_err = ce_err.tolist()
                         df_tab[idx_col] = ce_err
                     else:
-                        vals1 = self.raw_data[t][4]['Value'].values[:len(x)]
+                        if mat != 'TLD':
+                            vals1 = self.raw_data[t][4]['Value'].values[:len(x)]
+                        else:
+                            vals1 = self.raw_data[t][6]['Value'].values[:len(x)]
                         vals2 = exp_data_df.loc[:, 'Reaction Rate'].to_numpy()
                         ratio = vals1 / vals2
                         ratio = ratio.tolist()
@@ -1684,16 +1693,30 @@ class FNGBKTOutput(OktavianOutput):
             data_exp = {'x': x, 'y': y, 'err': err, 'ylabel': ylabel}
             data.append(data_exp)
 
+            if material != 'TLD':
+                title = self.testname + ' experiment, Foil: ' + material
+            else:
+                title = self.testname + \
+                    ' experiment, Gamma absorbed dose in TLD-300 detectors'
             # Loop over selected libraries
             for lib in self.lib[1:]:
                 # Get library name, assign title to the plot
                 ylabel = self.session.conf.get_lib_name(lib)
-                title = self.testname + ' experiment, Foil: ' + material
                 y = []
                 err = []
-                v = self.raw_data[(material, lib)][4]['Value'].values[:len(x)]
+                if material != 'TLD':
+                    v = self.raw_data[(material, lib)
+                                      ][4]['Value'].values[:len(x)]
+                else:
+                    v = self.raw_data[(material, lib)
+                                      ][6]['Value'].values[:len(x)]
                 y.append(v)
-                v = self.raw_data[(material, lib)][4]['Error'].values[:len(x)]
+                if material != 'TLD':
+                    v = self.raw_data[(material, lib)
+                                      ][4]['Error'].values[:len(x)]
+                else:
+                    v = self.raw_data[(material, lib)
+                                      ][6]['Error'].values[:len(x)]
                 err.append(v)
                 # Append computational data to data list(to be sent to plotter)
                 data_comp = {'x': x, 'y': y, 'err': err, 'ylabel': ylabel}
@@ -1711,8 +1734,14 @@ class FNGBKTOutput(OktavianOutput):
     def _get_conv_df(self, mat, size):
         conv_df = pd.DataFrame()
         for lib in self.lib[1:]:
-            max = self.raw_data[(mat, lib)][4]['Error'].values[:size].max()
-            avg = self.raw_data[(mat, lib)][4]['Error'].values[:size].mean()
+            if mat != 'TLD':
+                max = self.raw_data[(mat, lib)][4]['Error'].values[:size].max()
+                avg = self.raw_data[(mat, lib)][4]['Error'
+                                                   ].values[:size].mean()
+            else:
+                max = self.raw_data[(mat, lib)][6]['Error'].values[:size].max()
+                avg = self.raw_data[(mat, lib)][6]['Error'
+                                                   ].values[:size].mean()
             library = self.session.conf.get_lib_name(lib)
             conv_df.loc['Max Error', library] = max
             conv_df.loc['Average Error', library] = avg
