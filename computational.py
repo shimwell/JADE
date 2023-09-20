@@ -79,7 +79,9 @@ def executeBenchmarksRoutines(session, lib, exp=False):
             else:
                 libpath = lib
 
-            if testname in ['FNG Bulk Blanket and Shielding Experiment', 'FNG Tungsten']:
+            if testname in ['FNG Bulk Blanket and Shielding Experiment', 
+                            'FNG Tungsten', 
+                            'ASPIS Iron-88 benchmark']:
                 var = {'00c': lib, '34y': '34y'}
             else:
                 var = lib
