@@ -657,6 +657,7 @@ class OktavianOutput(ExperimentalOutput):
     def _dump_ce_table(self):
 
         print(' Dump the C/E table in Excel...')
+
         final_table = pd.concat(self.tables)
         todump = final_table.set_index(['Material', 'Particle', 'Library'])
         ex_outpath = os.path.join(self.excel_path, 'C over E table.xlsx')
@@ -702,7 +703,7 @@ class OktavianOutput(ExperimentalOutput):
         return
 
     def _data_collect(self, material, filepath, tallynum, particle,
-                      mat_read_file, e_intervals, columns, ylab=True):
+                      mat_read_file, e_intervals, columns=None, ylab=True):
 
         x, y, err = self._read_Oktavian_expresult(filepath, tallynum, columns)
 
@@ -715,7 +716,6 @@ class OktavianOutput(ExperimentalOutput):
                    'ylabel': 'Experiment'}
         # Get also the interpolator
         interpolator = interp1d(x, y, fill_value=0, bounds_error=False)
-
         # Collect the data to be plotted
         data = [lib]  # The first one should be the exp one
         for lib_tag in self.lib[1:]:  # Avoid exp
@@ -723,18 +723,19 @@ class OktavianOutput(ExperimentalOutput):
             try:  # The tally may not be defined
                 # Data for the plotter
                 values = self.results[mat_read_file, lib_tag][tallynum]
+                x_lab = list(values.keys())[0]
                 if ylab is True:
-                    lib = {'x': values['Energy [MeV]'],
+                    lib = {'x': values[x_lab],
                            'y': values['C'], 'err': values['Error'],
                            'ylabel': material + ' ('+lib_name+')'}
                 else:
-                    lib = {'x': values['Energy [MeV]'],
+                    lib = {'x': values[x_lab],
                            'y': values['C'], 'err': values['Error'],
                            'ylabel': lib_name}
                 data.append(lib)
                 # data for the table
                 table = _get_tablevalues(
-                    values, interpolator, e_intervals=e_intervals)
+                    values, interpolator, x=x_lab, e_intervals=e_intervals)
                 table['Particle'] = particle
                 table['Material'] = material
                 table['Library'] = lib_name
@@ -812,36 +813,45 @@ class OktavianOutput(ExperimentalOutput):
         for tallynum, data in output.tallydata.items():
             tallynum = str(tallynum)
             res2 = res[tallynum] = {}
-
+            x_axis = data.columns.tolist()[0]
+            if x_axis == 'Energy':
+                unit = 'MeV'
+            elif x_axis == 'Time':
+                unit = 'shakes'
             # Delete the total value
-            data = data.set_index('Energy').drop('total').reset_index()
+            data = data.set_index(x_axis).drop('total').reset_index()
+            flux, energies, errors = self._parse_data_df(data, output, x_axis, 
+                                                         tallynum)
 
-            flux = data['Value'].values
-            energies = data['Energy'].values
-            errors = data['Error'].values
-
-            # Energies for lethargy computation
-            ergs = [1e-10]  # Additional "zero" energy for lethargy computation
-            ergs.extend(energies.tolist())
-            ergs = np.array(ergs)
-
-            # Different behaviour for photons and neutrons
-            for tally in output.mctal.tallies:
-                if tallynum == str(tally.tallyNumber):
-                    particle = tally.particleList[np.where(
-                        tally.tallyParticles == 1)[0][0]]
-            if particle == 'Neutron':
-                flux = flux/np.log((ergs[1:]/ergs[:-1]))
-            elif particle == 'Photon':
-                flux = flux/(ergs[1:]-ergs[:-1])
-
-            res2['Energy [MeV]'] = energies
+            res2[x_axis + ' [' + unit + ']'] = energies
             res2['C'] = flux
             res2['Error'] = errors
 
             res[tallynum] = res2
 
         return res
+
+    def _parse_data_df(self, data, output, x_axis, tallynum):
+        # Generate a folder for each library
+        flux = data['Value'].values
+        energies = data[x_axis].values
+        errors = data['Error'].values
+
+        # Energies for lethargy computation
+        ergs = [1e-10]  # Additional "zero" energy for lethargy computation
+        ergs.extend(energies.tolist())
+        ergs = np.array(ergs)
+
+        # Different behaviour for photons and neutrons
+        for tally in output.mctal.tallies:
+            if tallynum == str(tally.tallyNumber):
+                particle = tally.particleList[np.where(
+                    tally.tallyParticles == 1)[0][0]]
+        if particle == 'Neutron':
+            flux = flux/np.log((ergs[1:]/ergs[:-1]))
+        elif particle == 'Photon':
+            flux = flux/(ergs[1:]-ergs[:-1])
+        return flux, energies, errors
 
     def _read_Oktavian_expresult(self, file, tallynum, columns):
         """
@@ -906,7 +916,6 @@ class TiaraBCOutput(OktavianOutput):
         """
 
         # Set plot axes details
-        maintitle = ' Tiara Experiment'
         xlabel = 'Energy [MeV]'
         particle = 'Neutron'
         quantity = 'Neutron Yield per Unit lethargy'
@@ -918,6 +927,9 @@ class TiaraBCOutput(OktavianOutput):
         mat_off_list = []
         print(msg)
 
+        columns = {'14': ['Nominal Energy [MeV]', 'C', 'Error'],
+                   '24': ['Nominal Energy [MeV]', 'C', 'Error'],
+                   '34': ['Nominal Energy [MeV]', 'C', 'Error']}
         # Loop over benchmark cases
         for material in tqdm(self.materials, desc='Materials: '):
             # Loop over tallies
@@ -955,9 +967,6 @@ class TiaraBCOutput(OktavianOutput):
                 file = 'Tiara-BC_' + material + '-' + offaxis_str + '.exp'
                 filepath = os.path.join(self.path_exp_res,
                                         material + '-' + offaxis_str, file)
-                columns = {'14': ['Nominal Energy [MeV]', 'C', 'Error'],
-                           '24': ['Nominal Energy [MeV]', 'C', 'Error'],
-                           '34': ['Nominal Energy [MeV]', 'C', 'Error']}
                 # Skip the tally if no experimental data is available
                 if os.path.isfile(filepath) == 0:
                     continue
@@ -1025,7 +1034,7 @@ def _get_tablevalues(df, interpolator, x='Energy [MeV]', y='C',
         mean = red['C/E'].mean()
         std = red['C/E'].std()
         row = {'C/E': mean, 'Standard Deviation (σ)': std,
-               'Max E': e_max, 'Min E': e_min}
+               'Max ' + x[0]: e_max, 'Min ' + x[0]: e_min}
         rows.append(row)
         # adjourn min energy
         e_min = e_max
@@ -1076,7 +1085,8 @@ class TiaraOutput(OktavianOutput):
                     case_tree.loc[cont,
                                   str(tally.tallyComment[0])+' Error'] = err
             # Sort data in dataframe and assign to variable
-            indexes = ['Library', 'Shield Material', 'Energy', 'Shield Thickness']
+            indexes = ['Library', 'Shield Material', 'Energy',
+                       'Shield Thickness']
             case_tree.sort_values(indexes, inplace=True)
             case_tree = case_tree.set_index(indexes)
             case_tree.index.names = indexes
@@ -1238,7 +1248,7 @@ class TiaraFCOutput(TiaraOutput):
 
     def _read_exp_results(self):
         """
-        Reads and manipulatesconderc Excel file
+        Reads and manipulates conderc Excel file
         """
 
         # Read experimental data from CONDERC Excel file
@@ -1266,7 +1276,8 @@ class TiaraFCOutput(TiaraOutput):
                                                      nrows=8)}
         # Build experimental dataframe
         exp_data = pd.DataFrame()
-        index = ['Shield Material', 'Energy', 'Shield Thickness', 'Axis offset']
+        index = ['Shield Material', 'Energy', 'Shield Thickness',
+                 'Axis offset']
         for idx, element in FC_data.items():
             # Build a first useful structure from CONDERC data
             element['Shield Material'] = idx[0]
@@ -1644,15 +1655,18 @@ class FNGBKTOutput(OktavianOutput):
                         else:
                             errs = self.raw_data[t][6]['Error'].values[:len(x)]
                         vals1 = np.square(errs)
-                        vals2 = np.square(exp_data_df.loc[:, 'Error'].to_numpy() / 100)
+                        vals2 = np.square(exp_data_df.loc[:, 'Error'
+                                                          ].to_numpy() / 100)
                         ce_err = np.sqrt(vals1 + vals2)
                         ce_err = ce_err.tolist()
                         df_tab[idx_col] = ce_err
                     else:
                         if mat != 'TLD':
-                            vals1 = self.raw_data[t][4]['Value'].values[:len(x)]
+                            vals1 = self.raw_data[t][4]['Value'
+                                                        ].values[:len(x)]
                         else:
-                            vals1 = self.raw_data[t][6]['Value'].values[:len(x)]
+                            vals1 = self.raw_data[t][6]['Value'
+                                                        ].values[:len(x)]
                         vals2 = exp_data_df.loc[:, 'Reaction Rate'].to_numpy()
                         ratio = vals1 / vals2
                         ratio = ratio.tolist()
@@ -1746,3 +1760,124 @@ class FNGBKTOutput(OktavianOutput):
             conv_df.loc['Max Error', library] = max
             conv_df.loc['Average Error', library] = avg
         return conv_df
+
+
+class TUDFeOutput(TiaraBCOutput):
+
+    def _build_atlas(self, tmp_path, atlas):
+        """
+        See ExperimentalOutput documentation
+        """
+        maintitle = ' TUD-Fe Experiment: '
+
+        self.tables = []
+        e_intervals = [0.1, 1, 5, 10, 20]
+        # Tally numbers should be fixed
+        tally_lis = list(self.results.values())[0].keys()
+        for tallynum in tally_lis:
+
+            for tally in list(self.outputs.values())[0].mctal.tallies:
+                if tallynum == str(tally.tallyNumber):
+                    particle = tally.particleList[np.where(
+                        tally.tallyParticles == 1)[0][0]]
+                    if tally.nErg > 1:
+                        x_ax_lab = 'e'
+                        xlabel = 'Energy [Mev]'
+                        unit = r'$ 1/cm^2/n/MeV$'
+                    elif tally.nTim > 1:
+                        x_ax_lab = 't'
+                        xlabel = 'Time [shakes]'
+                        unit = r'$ 1/cm^2/n/shakes$'
+            if particle == 'Neutron':
+                par = 'n'
+            elif particle == 'Photon':
+                par = 'p'
+
+            tit_tag = particle + ' Fluence per Unit ' + \
+                xlabel.split(' ')[0]
+            quantity = particle + ' Fluence'
+            msg = ' Printing the '+particle+' fluence per Unit ' \
+                  + xlabel.split(' ')[0] + '...'
+
+            print(msg)
+
+            atlas.doc.add_heading(quantity, level=1)
+
+            for material in tqdm(self.materials, desc='Materials: '):
+
+                atlas.doc.add_heading('Geometry: '+material, level=2)
+
+                title = maintitle+tit_tag
+
+                # Get the experimental data
+                file = self.testname+'_'+material+'-'+par+'-'+x_ax_lab+'.csv'
+                filepath = os.path.join(self.path_exp_res, material, file)
+                # Skip the tally if no experimental data is available
+                if os.path.isfile(filepath) == 0:
+                    continue
+                else:
+                    data = self._data_collect(material, filepath, tallynum,
+                                              particle, material, e_intervals)
+
+                # Once the data is collected it is passed to the plotter
+                outname = 'tmp'
+                plot = Plotter(data, title, tmp_path, outname, quantity, unit,
+                               xlabel, self.testname)
+                img_path = plot.plot('Experimental points')
+                # Insert the image in the atlas
+                atlas.insert_img(img_path)
+
+        self.mat_off_list = self.materials
+        # Dump the global C/E table
+        # self._dump_ce_table()
+
+        return atlas
+
+    def _parse_data_df(self, data, output, x_axis, tallynum):
+        # Generate a folder for each library
+        flux = data['Value'].values
+        energies = data[x_axis].values
+        errors = data['Error'].values
+
+        # Energies for lethargy computation
+        data['bin'] = None
+
+        prev_e = 0
+
+        for e in data[x_axis].unique().tolist():
+            data.loc[data[x_axis] == e, 'bin'] = e - prev_e
+            prev_e = e
+        flux = flux / data['bin'].values
+        return flux, energies, errors
+
+    def _read_Oktavian_expresult(self, file, tallynum, columns):
+        """
+        Given a file containing the Oktavian experimental results read it and
+        return the values to plot.
+
+        The values equal to 1e-38 are eliminated since it appears that they
+        are the zero values of the instrument used.
+
+        Parameters
+        ----------
+        file : os.Path or str
+            path to the file to be read.
+        tallynum : str
+            either '21' or '41'. the data is different for neutrons and
+            photons
+
+        Returns
+        -------
+        x : np.array
+            energy values.
+        y : np.array
+            lethargy flux values.
+
+        """
+        # then read the file accordingly
+        df = pd.read_csv(file)
+        cols = df.columns.tolist()
+        x = df[cols[0]].values
+        y = df[cols[1]].values
+        err = df[cols[2]].values
+        return x, y, err

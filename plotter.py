@@ -262,7 +262,7 @@ class Plotter:
 
         """
         nrows = len(self.quantity)
-        fig, axes = plt.subplots(figsize=(18, 7.5 + 2 * nrows), nrows=nrows, 
+        fig, axes = plt.subplots(figsize=(18, 7.5 + 2 * nrows), nrows=nrows,
                                  sharex=True)
         fig.suptitle(self.title, weight='bold')
 

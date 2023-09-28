@@ -75,7 +75,7 @@ def _get_output(action, testname, lib, session):
         elif action == 'pp':
             print(exp_pp_message)
             return False
-    
+
     elif testname == 'Tiara-FC':
         if action == 'compare':
             out = expo.TiaraFCOutput(lib, testname, session)
@@ -111,6 +111,13 @@ def _get_output(action, testname, lib, session):
             print(exp_pp_message)
             return False
 
+    elif testname == 'TUD-Fe':
+        if action == 'compare':
+            out = expo.TUDFeOutput(lib, testname, session)
+        elif action == 'pp':
+            print(exp_pp_message)
+            return False
+        
     else:
         out = bencho.BenchmarkOutput(lib, testname, session)
 
