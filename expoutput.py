@@ -37,6 +37,9 @@ from abc import abstractmethod
 from inputfile import D1S_Input
 import re
 
+MCNP_UNITS = {'Energy': 'MeV',
+              'Time': 'shakes'}
+
 
 class ExperimentalOutput(BenchmarkOutput):
     def __init__(self, *args, **kwargs):
@@ -168,6 +171,7 @@ class ExperimentalOutput(BenchmarkOutput):
         """
         outputs = {}
         results = {}
+        inputs = []
         # Iterate on the different libraries results except 'Exp'
         for lib, test_path in self.test_path.items():
             if lib != EXP_TAG:
@@ -175,14 +179,20 @@ class ExperimentalOutput(BenchmarkOutput):
                     # Results are organized by folder and lib
                     for folder in os.listdir(test_path):
                         results_path = os.path.join(test_path, folder)
+                        pieces = folder.split('_')
+                        # Get zaid
+                        input = pieces[-1]
+
                         mfile, ofile = self._get_output_files(results_path)
                         # Parse output
                         output = MCNPoutput(mfile, ofile)
-                        outputs[folder, lib] = output
+                        outputs[input, lib] = output
                         # Adjourn raw Data
-                        self.raw_data[folder, lib] = output.tallydata
+                        self.raw_data[input, lib] = output.tallydata
                         # Get the meaningful results
-                        results[folder, lib] = self._processMCNPdata(output)
+                        results[input, lib] = self._processMCNPdata(output)
+                        if input not in inputs:
+                            inputs.append(input)
                 # Results are organized just by lib
                 else:
                     mfile, ofile = self._get_output_files(test_path)
@@ -196,6 +206,8 @@ class ExperimentalOutput(BenchmarkOutput):
 
         self.outputs = outputs
         self.results = results
+        if inputs:
+            self.inputs = inputs
 
     def _read_exp_results(self):
         """
@@ -222,6 +234,8 @@ class ExperimentalOutput(BenchmarkOutput):
                     filename = file.split('.')[0]
                     filepath = os.path.join(cp, file)
                     df = self._read_exp_file(filepath)
+                    c = df.columns.tolist()[1]
+                    df = df[df[c] > 2e-38]
                     exp_results[folder][filename] = df
         else:
             # Iterate on each each file, read it and
@@ -594,51 +608,38 @@ class OktavianOutput(ExperimentalOutput):
     def _build_atlas(self, tmp_path, atlas):
         """
         See ExperimentalOutput documentation
+
         """
-        maintitle = ' Oktavian Experiment: '
-        xlabel = 'Energy [MeV]'
-
-        self.tables = []  # All C/E tables will be stored here and then concatenated
-        e_intervals = [0.1, 1, 5, 10, 20]
-        # Tally numbers should be fixed
-        for tallynum in ['21', '41']:
-            if tallynum == '21':
-                particle = 'Neutron'
-                tit_tag = 'Neutron Leakage Current per Unit Lethargy'
-                quantity = 'Neutron Leakage Current'
-                msg = ' Printing the '+particle+' Letharghy flux...'
-                unit = r'$ 1/u\cdot n_s$'
-            else:
-                particle = 'Photon'
-                tit_tag = 'Photon Leakage Current per unit energy'
-                quantity = 'Photon Leakage Current'
-                msg = ' Printing the '+particle+' spectrum...'
-                unit = r'$ 1/MeV\cdot n_s$'
-
-            print(msg)
-
-            atlas.doc.add_heading(quantity, level=1)
-
-            for material in tqdm(self.materials, desc='Materials: '):
-
-                atlas.doc.add_heading('Material: '+material, level=2)
-
-                title = material+maintitle+tit_tag
-
-                # Get the experimental data
-                file = 'oktavian_'+material+'_tal'+tallynum+'.exp'
-                filepath = os.path.join(self.path_exp_res, material, file)
-                columns = {'21': ['Nominal Energy [MeV]', 'Upper Energy [MeV]',
-                                  'Lower Energy [MeV]', 'C', 'Error'],
-                           '41': ['Nominal Energy [MeV]', 'Lower Energy [MeV]',
-                                  'Upper Energy [MeV]', 'C', 'Error']}
-                # Skip the tally if no experimental data is available
-                if os.path.isfile(filepath) == 0:
-                    continue
+        self.tables = []
+        # Loop over benchmark cases
+        for input in tqdm(self.inputs, desc=' Inputs: '):
+            # Loop over tallies
+            for tally in self.outputs[(input, self.lib[1])].mctal.tallies:
+                # Get tally number and info
+                tallynum = tally.tallyNumber
+                comment = str(tally.tallyComment)[2:-2]
+                particle = tally.particleList[np.where(
+                    tally.tallyParticles == 1)[0][0]]
+                # Set title and header
+                if self.testname == 'Tiara-BC':
+                    head = self.testname + ', ' + comment + '\n'
                 else:
-                    data = self._data_collect(material, filepath, tallynum,
-                                              particle, material, e_intervals,
-                                              columns)
+                    head = self.testname + ' ' + input + ', ' + comment + '\n'
+                atlas.doc.add_heading(head, level=1)
+                title = comment
+                if tally.nErg > 1:
+                    xlabel = 'Energy [Mev]'
+                elif tally.nTim > 1:
+                    xlabel = 'Time [shakes]'
+                # Collect data
+                e_int = [3.5, 10, 20]  # to be handled later
+                data, xlabel, ylabel = self._data_collect(input, str(tallynum),
+                                                          particle, input,
+                                                          e_intervals=e_int)
+                pattern = r'\[(.*?)\]'
+                # Use re.findall to extract all substrings between '[' and ']'
+                unit = re.findall(pattern, ylabel)[0]
+                quantity = re.sub(pattern, '', ylabel)
 
                 # Once the data is collected it is passed to the plotter
                 outname = 'tmp'
@@ -648,9 +649,8 @@ class OktavianOutput(ExperimentalOutput):
                 # Insert the image in the atlas
                 atlas.insert_img(img_path)
 
-        self.mat_off_list = self.materials
-        # Dump the global C/E table
-        self._dump_ce_table()
+        # Dump C/E table
+        # self._dump_ce_table()
 
         return atlas
 
@@ -683,7 +683,7 @@ class OktavianOutput(ExperimentalOutput):
             del ft[column]
 
         # Dump also table material by material
-        for material in self.mat_off_list:
+        for material in self.inputs:
             # dump material table
             todump = ft.loc[material]
             todump = todump.pivot(index=['Particle', 'E-min [MeV]', 
@@ -702,18 +702,19 @@ class OktavianOutput(ExperimentalOutput):
         writer.save()
         return
 
-    def _data_collect(self, material, filepath, tallynum, particle,
-                      mat_read_file, e_intervals, columns=None, ylab=True):
+    def _data_collect(self, input, tallynum, particle,
+                      mat_read_file, e_intervals):
 
-        x, y, err = self._read_Oktavian_expresult(filepath, tallynum, columns)
-
+        filename = self.testname + '_' + input + '_' + str(tallynum)
+        col_idx = self.exp_results[input][filename].columns.tolist()
+        x_lab = col_idx[0]
+        y_lab = col_idx[1]
+        x = self.exp_results[input][filename][col_idx[0]].values
+        y = self.exp_results[input][filename][col_idx[1]].values
+        err = self.exp_results[input][filename][col_idx[2]].values
         # lib will be passed to the plotter
-        if ylab is True:
-            lib = {'x': x, 'y': y, 'err': err,
-                   'ylabel': material + ' (Experiment)'}
-        else:
-            lib = {'x': x, 'y': y, 'err': err,
-                   'ylabel': 'Experiment'}
+        lib = {'x': x, 'y': y, 'err': err,
+               'ylabel': 'Experiment'}
         # Get also the interpolator
         interpolator = interp1d(x, y, fill_value=0, bounds_error=False)
         # Collect the data to be plotted
@@ -723,59 +724,20 @@ class OktavianOutput(ExperimentalOutput):
             try:  # The tally may not be defined
                 # Data for the plotter
                 values = self.results[mat_read_file, lib_tag][tallynum]
-                x_lab = list(values.keys())[0]
-                if ylab is True:
-                    lib = {'x': values[x_lab],
-                           'y': values['C'], 'err': values['Error'],
-                           'ylabel': material + ' ('+lib_name+')'}
-                else:
-                    lib = {'x': values[x_lab],
-                           'y': values['C'], 'err': values['Error'],
-                           'ylabel': lib_name}
+                lib = {'x': values[x_lab], 'y': values['C'],
+                       'err': values['Error'], 'ylabel': lib_name}
                 data.append(lib)
                 # data for the table
-                table = _get_tablevalues(
-                    values, interpolator, x=x_lab, e_intervals=e_intervals)
+                table = _get_tablevalues(values, interpolator, x=x_lab,
+                                         e_intervals=e_intervals)
                 table['Particle'] = particle
-                table['Material'] = material
+                table['Material'] = input
                 table['Library'] = lib_name
                 self.tables.append(table)
             except KeyError:
                 # The tally is not defined
                 pass
-        return data
-
-    def _extract_outputs(self):
-        # Get results
-        # results = []
-        # errors = []
-        # stat_checks = []
-        outputs = {}
-        results = {}
-        materials = []
-        # Iterate on the different libraries results except 'Exp'
-        for lib, test_path in self.test_path.items():
-            if lib != EXP_TAG:
-                for folder in os.listdir(test_path):
-                    results_path = os.path.join(test_path, folder)
-                    pieces = folder.split('_')
-                    # Get zaid
-                    material = pieces[-1]
-
-                    mfile, ofile = self._get_output_files(results_path)
-                    # Parse output
-                    output = MCNPoutput(mfile, ofile)
-                    outputs[material, lib] = output
-                    # Adjourn raw Data
-                    self.raw_data[material, lib] = output.tallydata
-                    # Get the meaningful results
-                    results[material, lib] = self._processMCNPdata(output)
-                    if material not in materials:
-                        materials.append(material)
-
-        self.outputs = outputs
-        self.results = results
-        self.materials = materials
+        return data, x_lab, y_lab
 
     def _pp_excel_comparison(self):
         # Excel is actually printed by the build atlas in this case
@@ -786,10 +748,10 @@ class OktavianOutput(ExperimentalOutput):
         for lib_name in self.lib[1:]:  # Avoid Exp
             cd_lib = os.path.join(self.raw_path, lib_name)
             os.mkdir(cd_lib)
-            # result for each material
-            for material in self.materials:
-                for key, data in self.raw_data[material, lib_name].items():
-                    file = os.path.join(cd_lib, material+' '+str(key)+'.csv')
+            # result for each input
+            for input in self.inputs:
+                for key, data in self.raw_data[input, lib_name].items():
+                    file = os.path.join(cd_lib, input+' '+str(key)+'.csv')
                     data.to_csv(file, header=True, index=False)
 
     def _processMCNPdata(self, output):
@@ -814,16 +776,13 @@ class OktavianOutput(ExperimentalOutput):
             tallynum = str(tallynum)
             res2 = res[tallynum] = {}
             x_axis = data.columns.tolist()[0]
-            if x_axis == 'Energy':
-                unit = 'MeV'
-            elif x_axis == 'Time':
-                unit = 'shakes'
+
             # Delete the total value
             data = data.set_index(x_axis).drop('total').reset_index()
-            flux, energies, errors = self._parse_data_df(data, output, x_axis, 
+            flux, energies, errors = self._parse_data_df(data, output, x_axis,
                                                          tallynum)
 
-            res2[x_axis + ' [' + unit + ']'] = energies
+            res2[x_axis + ' [' + MCNP_UNITS[x_axis] + ']'] = energies
             res2['C'] = flux
             res2['Error'] = errors
 
@@ -852,145 +811,6 @@ class OktavianOutput(ExperimentalOutput):
         elif particle == 'Photon':
             flux = flux/(ergs[1:]-ergs[:-1])
         return flux, energies, errors
-
-    def _read_Oktavian_expresult(self, file, tallynum, columns):
-        """
-        Given a file containing the Oktavian experimental results read it and
-        return the values to plot.
-
-        The values equal to 1e-38 are eliminated since it appears that they
-        are the zero values of the instrument used.
-
-        Parameters
-        ----------
-        file : os.Path or str
-            path to the file to be read.
-        tallynum : str
-            either '21' or '41'. the data is different for neutrons and
-            photons
-
-        Returns
-        -------
-        x : np.array
-            energy values.
-        y : np.array
-            lethargy flux values.
-
-        """
-        # First of all understand how many comment lines there are
-        with open(file, 'r') as infile:
-            counter = 0
-            for line in infile:
-                if line[0] == '#':
-                    counter += 1
-                else:
-                    break
-        # then read the file accordingly
-        df = pd.read_csv(file, skiprows=counter, skipfooter=1, engine='python',
-                         header=None, sep=r'\s+')
-        df.columns = columns[tallynum]
-        df = df[df['C'] > 2e-38]
-
-        x = df['Nominal Energy [MeV]'].values
-        y = df['C'].values
-
-        err = df['Error'].values
-
-        return x, y, err
-
-    def _read_exp_results(self):
-        """
-        This is an older implementation and the reading was done somewhere
-        else
-
-        """
-        pass
-
-
-class TiaraBCOutput(OktavianOutput):
-
-    def _build_atlas(self, tmp_path, atlas):
-        """
-        See ExperimentalOutput documentation
-
-        """
-
-        # Set plot axes details
-        xlabel = 'Energy [MeV]'
-        particle = 'Neutron'
-        quantity = 'Neutron Yield per Unit lethargy'
-        msg = ' Printing the '+particle+' Letharghy flux...'
-        unit = r'$ 1/u$'
-
-        self.tables = []
-        # All C/E tables will be stored here and then concatenated
-        mat_off_list = []
-        print(msg)
-
-        columns = {'14': ['Nominal Energy [MeV]', 'C', 'Error'],
-                   '24': ['Nominal Energy [MeV]', 'C', 'Error'],
-                   '34': ['Nominal Energy [MeV]', 'C', 'Error']}
-        # Loop over benchmark cases
-        for material in tqdm(self.materials, desc='Materials: '):
-            # Loop over tallies
-            for tally in self.outputs[(material, self.lib[1])].mctal.tallies:
-                # Get tally number and info
-                tallynum = tally.tallyNumber
-                comment = str(tally.tallyComment)
-                # Assign on/off axis value
-                if 'on-axis' in comment:
-                    offaxis_str = '00'
-                    string_off_axis = 'on-axis'
-                elif '20' in comment:
-                    offaxis_str = '20'
-                    string_off_axis = '20 cm off-axis'
-                elif '40' in comment:
-                    offaxis_str = '40'
-                    string_off_axis = '40 cm off-axis'
-
-                # Assign shielding material
-                if material.split('-')[0] == 'cc':
-                    material_name = 'Concrete'
-                elif material.split('-')[0] == 'fe':
-                    material_name = 'Iron'
-
-                # Set title and header
-                head = material_name + ', ' + material.split('-')[2] + \
-                    ' cm, ' + material.split('-')[1] + ' MeV, ' + \
-                    'Additional collimator: ' + material.split('-')[3] + \
-                    ' cm, ' + string_off_axis
-                atlas.doc.add_heading(head, level=2)
-                title = '\n' + 'Tiara:' + head
-
-                # Open the correspondent experimental data file
-                mat_off_list.append(material + '-' + offaxis_str)
-                file = 'Tiara-BC_' + material + '-' + offaxis_str + '.exp'
-                filepath = os.path.join(self.path_exp_res,
-                                        material + '-' + offaxis_str, file)
-                # Skip the tally if no experimental data is available
-                if os.path.isfile(filepath) == 0:
-                    continue
-                else:
-                    # Collect data
-                    e_int = [3.5, 10, 20, 30, 40, 50, 60, 70]
-                    data = self._data_collect(material + '-' + offaxis_str,
-                                              filepath, str(tallynum),
-                                              particle, material,
-                                              e_intervals=e_int,
-                                              columns=columns, ylab=False)
-                # Once the data is collected it is passed to the plotter
-                outname = 'tmp'
-                plot = Plotter(data, title, tmp_path, outname, quantity, unit,
-                               xlabel, self.testname)
-                img_path = plot.plot('Experimental points')
-                # Insert the image in the atlas
-                atlas.insert_img(img_path)
-
-        self.mat_off_list = mat_off_list
-        # Dump C/E table
-        self._dump_ce_table()
-
-        return atlas
 
 
 def _get_tablevalues(df, interpolator, x='Energy [MeV]', y='C',
@@ -1623,7 +1443,7 @@ class FNGBKTOutput(OktavianOutput):
         column_index = pd.MultiIndex.from_tuples(column_names, names=names)
         filepath = self.excel_path + '\\' + self.testname + '_CE_tables.xlsx'
         writer = pd.ExcelWriter(filepath, engine='xlsxwriter')
-        for mat in self.materials:
+        for mat in self.inputs:
             exp_folder = os.path.join(self.path_exp_res, mat)
             exp_filename = self.testname + '_' + mat + '.csv'
             exp_filepath = os.path.join(exp_folder, exp_filename)
@@ -1690,7 +1510,7 @@ class FNGBKTOutput(OktavianOutput):
         quantity = ['C/E']
         xlabel = 'Shielding thickness [cm]'
         data = []
-        for material in tqdm(self.materials, desc='Foil: '):
+        for material in tqdm(self.inputs, desc='Foil: '):
             data = []
             exp_folder = os.path.join(self.path_exp_res, material)
             exp_filename = self.testname + '_' + material + '.csv'
@@ -1762,76 +1582,7 @@ class FNGBKTOutput(OktavianOutput):
         return conv_df
 
 
-class TUDFeOutput(TiaraBCOutput):
-
-    def _build_atlas(self, tmp_path, atlas):
-        """
-        See ExperimentalOutput documentation
-        """
-        maintitle = ' TUD-Fe Experiment: '
-
-        self.tables = []
-        e_intervals = [0.1, 1, 5, 10, 20]
-        # Tally numbers should be fixed
-        tally_lis = list(self.results.values())[0].keys()
-        for tallynum in tally_lis:
-
-            for tally in list(self.outputs.values())[0].mctal.tallies:
-                if tallynum == str(tally.tallyNumber):
-                    particle = tally.particleList[np.where(
-                        tally.tallyParticles == 1)[0][0]]
-                    if tally.nErg > 1:
-                        x_ax_lab = 'e'
-                        xlabel = 'Energy [Mev]'
-                        unit = r'$ 1/cm^2/n/MeV$'
-                    elif tally.nTim > 1:
-                        x_ax_lab = 't'
-                        xlabel = 'Time [shakes]'
-                        unit = r'$ 1/cm^2/n/shakes$'
-            if particle == 'Neutron':
-                par = 'n'
-            elif particle == 'Photon':
-                par = 'p'
-
-            tit_tag = particle + ' Fluence per Unit ' + \
-                xlabel.split(' ')[0]
-            quantity = particle + ' Fluence'
-            msg = ' Printing the '+particle+' fluence per Unit ' \
-                  + xlabel.split(' ')[0] + '...'
-
-            print(msg)
-
-            atlas.doc.add_heading(quantity, level=1)
-
-            for material in tqdm(self.materials, desc='Materials: '):
-
-                atlas.doc.add_heading('Geometry: '+material, level=2)
-
-                title = maintitle+tit_tag
-
-                # Get the experimental data
-                file = self.testname+'_'+material+'-'+par+'-'+x_ax_lab+'.csv'
-                filepath = os.path.join(self.path_exp_res, material, file)
-                # Skip the tally if no experimental data is available
-                if os.path.isfile(filepath) == 0:
-                    continue
-                else:
-                    data = self._data_collect(material, filepath, tallynum,
-                                              particle, material, e_intervals)
-
-                # Once the data is collected it is passed to the plotter
-                outname = 'tmp'
-                plot = Plotter(data, title, tmp_path, outname, quantity, unit,
-                               xlabel, self.testname)
-                img_path = plot.plot('Experimental points')
-                # Insert the image in the atlas
-                atlas.insert_img(img_path)
-
-        self.mat_off_list = self.materials
-        # Dump the global C/E table
-        # self._dump_ce_table()
-
-        return atlas
+class TUDFeOutput(OktavianOutput):
 
     def _parse_data_df(self, data, output, x_axis, tallynum):
         # Generate a folder for each library
@@ -1849,35 +1600,3 @@ class TUDFeOutput(TiaraBCOutput):
             prev_e = e
         flux = flux / data['bin'].values
         return flux, energies, errors
-
-    def _read_Oktavian_expresult(self, file, tallynum, columns):
-        """
-        Given a file containing the Oktavian experimental results read it and
-        return the values to plot.
-
-        The values equal to 1e-38 are eliminated since it appears that they
-        are the zero values of the instrument used.
-
-        Parameters
-        ----------
-        file : os.Path or str
-            path to the file to be read.
-        tallynum : str
-            either '21' or '41'. the data is different for neutrons and
-            photons
-
-        Returns
-        -------
-        x : np.array
-            energy values.
-        y : np.array
-            lethargy flux values.
-
-        """
-        # then read the file accordingly
-        df = pd.read_csv(file)
-        cols = df.columns.tolist()
-        x = df[cols[0]].values
-        y = df[cols[1]].values
-        err = df[cols[2]].values
-        return x, y, err

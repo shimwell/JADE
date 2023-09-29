@@ -115,6 +115,10 @@ CYL_SDDR_XTICKS = {"'22-1'": 'Hole Front',
                    "'25-4'": 'SS Back Rear'}
 
 
+# --- exp data plot ---
+EXP_DATA_LINESTYLES = ['--', '-.', ':']*50
+
+
 # ============================================================================
 #                   Plotter Class
 # ============================================================================
@@ -458,7 +462,7 @@ class Plotter:
 
         return self._save()
 
-    def _exp_points_plot(self, y_scale='log', markersize=6, x_scale='log'):
+    def _exp_points_plot(self, y_scale='log', markersize=10, x_scale='log'):
         """
         Plot a simple plot that compares experimental data points with
         computational calculation.
@@ -498,8 +502,12 @@ class Plotter:
         ax2 = axes[1]
 
         # Plot referece
-        ax1.plot(ref['x'], ref['y'], 's', color=self.colors[0],
-                 label=ref['ylabel'], markersize=markersize)
+        # ax1.plot(ref['x'], ref['y'], 's', markeredgecolor=self.colors[0],
+        #          fillstyle='none', zorder=3, label=ref['ylabel'],
+        #          markersize=markersize, markeredgewidth=2)
+        ax1.plot(ref['x'], ref['y'], color=self.colors[0],
+                 drawstyle='steps-pre', label=ref['ylabel'],
+                 linestyle='-', linewidth=2)
         # Get the linear interpolation for C/E
         interpolate = interp1d(ref['x'], ref['y'], fill_value=0,
                                bounds_error=False)
@@ -509,11 +517,15 @@ class Plotter:
             for i, dic in enumerate(data[1:]):
                 # Plot the flux
                 ax1.plot(dic['x'], dic['y'], color=self.colors[i+1],
-                         drawstyle='steps-pre', label=dic['ylabel'])
+                         drawstyle='steps-pre', label=dic['ylabel'],
+                         linestyle=EXP_DATA_LINESTYLES[i], linewidth=2,
+                         zorder=2)
                 # plot the C/E
                 interp_ref = interpolate(dic['x'])
                 ax2.plot(dic['x'], dic['y']/interp_ref, color=self.colors[i+1],
-                         drawstyle='steps-pre', label=dic['ylabel'])
+                         drawstyle='steps-pre', label=dic['ylabel'],
+                         linestyle=EXP_DATA_LINESTYLES[i], linewidth=2,
+                         zorder=2)
         except KeyError:
             # it is a single pp
             return self._save()

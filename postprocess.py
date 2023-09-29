@@ -62,16 +62,9 @@ def _get_output(action, testname, lib, session):
     elif testname == 'SphereSDDR':
         out = spho.SphereSDDRoutput(lib, testname, session)
 
-    elif testname == 'Oktavian':
+    elif testname in ['Oktavian', 'Tiara-BC']:
         if action == 'compare':
-            out = expo.OktavianOutput(lib, testname, session)
-        elif action == 'pp':
-            print(exp_pp_message)
-            return False
-
-    elif testname == 'Tiara-BC':
-        if action == 'compare':
-            out = expo.TiaraBCOutput(lib, testname, session)
+            out = expo.OktavianOutput(lib, testname, session, multiplerun=True)
         elif action == 'pp':
             print(exp_pp_message)
             return False
@@ -90,13 +83,6 @@ def _get_output(action, testname, lib, session):
             print(exp_pp_message)
             return False  
 
-    elif testname == 'FNS':
-        if action == 'compare':
-            out = expo.FNSOutput(lib, testname, session)
-        elif action == 'pp':
-            print(exp_pp_message)
-            return False
-
     elif testname in ['FNG-BKT', 'FNG-W', 'ASPIS-Fe88']:
         if action == 'compare':
             out = expo.FNGBKTOutput(lib, testname, session)
@@ -113,11 +99,11 @@ def _get_output(action, testname, lib, session):
 
     elif testname == 'TUD-Fe':
         if action == 'compare':
-            out = expo.TUDFeOutput(lib, testname, session)
+            out = expo.TUDFeOutput(lib, testname, session, multiplerun=True)
         elif action == 'pp':
             print(exp_pp_message)
             return False
-        
+
     else:
         out = bencho.BenchmarkOutput(lib, testname, session)
 
