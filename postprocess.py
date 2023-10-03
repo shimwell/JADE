@@ -62,30 +62,37 @@ def _get_output(action, testname, lib, session):
     elif testname == 'SphereSDDR':
         out = spho.SphereSDDRoutput(lib, testname, session)
 
-    elif testname in ['Oktavian', 'Tiara-BC']:
+    elif testname in ['Oktavian', 'Tiara-BC', 'FNS']:
         if action == 'compare':
             out = expo.OktavianOutput(lib, testname, session, multiplerun=True)
         elif action == 'pp':
             print(exp_pp_message)
             return False
 
+    elif testname in ['TUD-FNG']:
+        if action == 'compare':
+            out = expo.TUDFeOutput(lib, testname, session)
+        elif action == 'pp':
+            print(exp_pp_message)
+            return False
+
     elif testname == 'Tiara-FC':
         if action == 'compare':
-            out = expo.TiaraFCOutput(lib, testname, session)
+            out = expo.TiaraFCOutput(lib, testname, session, multiplerun=True)
         elif action == 'pp':
             print(exp_pp_message)
             return False
 
     elif testname == 'Tiara-BS':
         if action == 'compare':
-            out = expo.TiaraBSOutput(lib, testname, session)
+            out = expo.TiaraBSOutput(lib, testname, session, multiplerun=True)
         elif action == 'pp':
             print(exp_pp_message)
-            return False  
+            return False
 
     elif testname in ['FNG-BKT', 'FNG-W', 'ASPIS-Fe88']:
         if action == 'compare':
-            out = expo.FNGBKTOutput(lib, testname, session)
+            out = expo.FNGBKTOutput(lib, testname, session, multiplerun=True)
         elif action == 'pp':
             print(exp_pp_message)
             return False
@@ -97,7 +104,7 @@ def _get_output(action, testname, lib, session):
             print(exp_pp_message)
             return False
 
-    elif testname == 'TUD-Fe':
+    elif testname in ['TUD-Fe', 'TUD-W']:
         if action == 'compare':
             out = expo.TUDFeOutput(lib, testname, session, multiplerun=True)
         elif action == 'pp':

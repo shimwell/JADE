@@ -198,16 +198,18 @@ class ExperimentalOutput(BenchmarkOutput):
                     mfile, ofile = self._get_output_files(test_path)
                     # Parse output
                     output = MCNPoutput(mfile, ofile)
-                    outputs[lib] = output
+                    outputs['single', lib] = output
                     # Adjourn raw Data
-                    self.raw_data[lib] = output.tallydata
+                    self.raw_data['single', lib] = output.tallydata
                     # Get the meaningful results
-                    results[lib] = self._processMCNPdata(output)
+                    results['single', lib] = self._processMCNPdata(output)
 
         self.outputs = outputs
         self.results = results
         if inputs:
             self.inputs = inputs
+        else:
+            self.inputs = ['single']
 
     def _read_exp_results(self):
         """
@@ -240,11 +242,14 @@ class ExperimentalOutput(BenchmarkOutput):
         else:
             # Iterate on each each file, read it and
             # build the result dic
+            exp_results['single'] = {}
             for file in os.listdir(self.path_exp_res):
                 filename = file.split('.')[0]
                 filepath = os.path.join(self.path_exp_res, file)
                 df = self._read_exp_file(filepath)
-                exp_results[filename] = df
+                c = df.columns.tolist()[1]
+                df = df[df[c] > 2e-38]
+                exp_results['single'][filename] = df
 
         self.exp_results = exp_results
 
@@ -270,31 +275,20 @@ class ExperimentalOutput(BenchmarkOutput):
         -------
         None.
         """
-        # Multiple tests in the benchmark scope
-        if self.multiplerun:
-            for (folder, lib), item in self.raw_data.items():
-                # Create the lib directory if it is not there
-                cd_lib = os.path.join(self.raw_path, lib)
-                if not os.path.exists(cd_lib):
-                    os.mkdir(cd_lib)
-                # Dump everything
-                for key, data in item.items():
+
+        for (folder, lib), item in self.raw_data.items():
+            # Create the lib directory if it is not there
+            cd_lib = os.path.join(self.raw_path, lib)
+            if not os.path.exists(cd_lib):
+                os.mkdir(cd_lib)
+            # Dump everything
+            for key, data in item.items():
+                if folder == 'single':
+                    file = os.path.join(cd_lib, str(key)+'.csv')
+                else:
                     file = os.path.join(cd_lib,
                                         folder+' '+str(key)+'.csv')
-                    data.to_csv(file, header=True, index=False)
-
-        # Single test in the benchmark scope
-        else:
-            for lib, item in self.raw_data.items():
-                # Create the lib directory if it is not there
-                cd_lib = os.path.join(self.raw_path, lib)
-                if not os.path.exists(cd_lib):
-                    os.mkdir(cd_lib)
-
-                # Dump everything
-                for key, data in item.items():
-                    file = os.path.join(cd_lib, str(key)+'.csv')
-                    data.to_csv(file, header=True, index=False)
+                data.to_csv(file, header=True, index=False)
 
     @abstractmethod
     def _processMCNPdata(self, output):
@@ -611,6 +605,7 @@ class OktavianOutput(ExperimentalOutput):
 
         """
         self.tables = []
+
         # Loop over benchmark cases
         for input in tqdm(self.inputs, desc=' Inputs: '):
             # Loop over tallies
@@ -621,11 +616,6 @@ class OktavianOutput(ExperimentalOutput):
                 particle = tally.particleList[np.where(
                     tally.tallyParticles == 1)[0][0]]
                 # Set title and header
-                if self.testname == 'Tiara-BC':
-                    head = self.testname + ', ' + comment + '\n'
-                else:
-                    head = self.testname + ' ' + input + ', ' + comment + '\n'
-                atlas.doc.add_heading(head, level=1)
                 title = comment
                 if tally.nErg > 1:
                     xlabel = 'Energy [Mev]'
@@ -636,6 +626,16 @@ class OktavianOutput(ExperimentalOutput):
                 data, xlabel, ylabel = self._data_collect(input, str(tallynum),
                                                           particle, input,
                                                           e_intervals=e_int)
+                if not data:
+                    continue
+                if not self.multiplerun:
+                    head = self.testname + ', ' + comment + '\n'
+                elif self.testname == 'Tiara-BC':
+                    head = self.testname + ', ' + comment + '\n'
+                else:
+                    head = self.testname + ' ' + input + ', ' + comment + '\n'
+                atlas.doc.add_heading(head, level=1)
+
                 pattern = r'\[(.*?)\]'
                 # Use re.findall to extract all substrings between '[' and ']'
                 unit = re.findall(pattern, ylabel)[0]
@@ -705,8 +705,16 @@ class OktavianOutput(ExperimentalOutput):
     def _data_collect(self, input, tallynum, particle,
                       mat_read_file, e_intervals):
 
-        filename = self.testname + '_' + input + '_' + str(tallynum)
-        col_idx = self.exp_results[input][filename].columns.tolist()
+        if self.multiplerun:
+            filename = self.testname + '_' + input + '_' + str(tallynum)
+        else:
+            filename = self.testname + '_' + str(tallynum)
+        # check if correspondent experimental data exists
+        try:
+            col_idx = self.exp_results[input][filename].columns.tolist()
+        except KeyError:
+            return None, None, None
+
         x_lab = col_idx[0]
         y_lab = col_idx[1]
         x = self.exp_results[input][filename][col_idx[0]].values
@@ -742,17 +750,6 @@ class OktavianOutput(ExperimentalOutput):
     def _pp_excel_comparison(self):
         # Excel is actually printed by the build atlas in this case
         pass
-
-    def _print_raw(self):
-        # Generate a folder for each library
-        for lib_name in self.lib[1:]:  # Avoid Exp
-            cd_lib = os.path.join(self.raw_path, lib_name)
-            os.mkdir(cd_lib)
-            # result for each input
-            for input in self.inputs:
-                for key, data in self.raw_data[input, lib_name].items():
-                    file = os.path.join(cd_lib, input+' '+str(key)+'.csv')
-                    data.to_csv(file, header=True, index=False)
 
     def _processMCNPdata(self, output):
         """
@@ -862,7 +859,7 @@ def _get_tablevalues(df, interpolator, x='Energy [MeV]', y='C',
     return pd.DataFrame(rows)
 
 
-class TiaraOutput(OktavianOutput):
+class TiaraOutput(ExperimentalOutput):
 
     def _processMCNPdata(self, output):
 
@@ -885,7 +882,7 @@ class TiaraOutput(OktavianOutput):
         for lib in self.lib[1:]:
             # Declare empty dataframes
             case_tree = pd.DataFrame()
-            for cont, case in enumerate(self.materials):
+            for cont, case in enumerate(self.inputs):
                 # Get data from benchmark's cases' names
                 mat_name_list = case.split('-')
                 if mat_name_list[0] == 'cc':
@@ -1420,7 +1417,7 @@ class TiaraBSOutput(TiaraOutput):
         return atlas
 
 
-class FNGBKTOutput(OktavianOutput):
+class FNGBKTOutput(ExperimentalOutput):
 
     def _processMCNPdata(self, output):
 

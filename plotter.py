@@ -54,6 +54,14 @@ plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 plt.rc('lines', markersize=12)          # Marker default size
 
+# define how to represent exp data in plots for each benchmark
+EXP_PLOT_TYPE = {'Tiara-BC': 'bins',
+                 'Oktavian': 'bins',
+                 'TUD-FNG': 'bins',
+                 'TUD-Fe': 'bins',
+                 'TUD-W': 'bins',
+                 'FNS': 'points'
+                 }
 # ============================================================================
 #                   Specific data for benchmarks plots
 # ============================================================================
@@ -215,9 +223,10 @@ class Plotter:
         # --- Experimental Points Plot ---
         elif plot_type == 'Experimental points':
             if self.testname == 'Tiara-BC':  # Special actions for Tiara-BC
-                outp = self._exp_points_plot(x_scale='linear')
+                outp = self._exp_points_plot(test_name=self.testname,
+                                             x_scale='linear')
             else:
-                outp = self._exp_points_plot()
+                outp = self._exp_points_plot(test_name=self.testname)
 
         # --- Experimental Points Plot ---
         elif plot_type == 'Discreet Experimental points':
@@ -462,7 +471,7 @@ class Plotter:
 
         return self._save()
 
-    def _exp_points_plot(self, y_scale='log', markersize=10, x_scale='log'):
+    def _exp_points_plot(self, test_name, y_scale='log', markersize=10, x_scale='log'):
         """
         Plot a simple plot that compares experimental data points with
         computational calculation.
@@ -502,12 +511,14 @@ class Plotter:
         ax2 = axes[1]
 
         # Plot referece
-        # ax1.plot(ref['x'], ref['y'], 's', markeredgecolor=self.colors[0],
-        #          fillstyle='none', zorder=3, label=ref['ylabel'],
-        #          markersize=markersize, markeredgewidth=2)
-        ax1.plot(ref['x'], ref['y'], color=self.colors[0],
-                 drawstyle='steps-pre', label=ref['ylabel'],
-                 linestyle='-', linewidth=2)
+        if EXP_PLOT_TYPE[test_name] == 'points':
+            ax1.plot(ref['x'], ref['y'], 's', markeredgecolor=self.colors[0],
+                     fillstyle='none', zorder=3, label=ref['ylabel'],
+                     markersize=markersize, markeredgewidth=2)
+        elif EXP_PLOT_TYPE[test_name] == 'bins':
+            ax1.plot(ref['x'], ref['y'], color=self.colors[0],
+                     drawstyle='steps-pre', label=ref['ylabel'],
+                     linestyle='-', linewidth=2)
         # Get the linear interpolation for C/E
         interpolate = interp1d(ref['x'], ref['y'], fill_value=0,
                                bounds_error=False)
