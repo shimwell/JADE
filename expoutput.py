@@ -597,7 +597,7 @@ class FNGOutput(ExperimentalOutput):
         return pd.read_csv(filepath, sep=';')
 
 
-class OktavianOutput(ExperimentalOutput):
+class SpectrumOutput(ExperimentalOutput):
 
     def _build_atlas(self, tmp_path, atlas):
         """
@@ -1417,7 +1417,7 @@ class TiaraBSOutput(TiaraOutput):
         return atlas
 
 
-class FNGBKTOutput(ExperimentalOutput):
+class ShieldingOutput(ExperimentalOutput):
 
     def _processMCNPdata(self, output):
 
@@ -1579,7 +1579,7 @@ class FNGBKTOutput(ExperimentalOutput):
         return conv_df
 
 
-class TUDFeOutput(OktavianOutput):
+class TUDFeOutput(SpectrumOutput):
 
     def _parse_data_df(self, data, output, x_axis, tallynum):
         # Generate a folder for each library

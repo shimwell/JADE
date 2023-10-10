@@ -64,7 +64,7 @@ def _get_output(action, testname, lib, session):
 
     elif testname in ['Oktavian', 'Tiara-BC', 'FNS']:
         if action == 'compare':
-            out = expo.OktavianOutput(lib, testname, session, multiplerun=True)
+            out = expo.SpectrumOutput(lib, testname, session, multiplerun=True)
         elif action == 'pp':
             print(exp_pp_message)
             return False
@@ -92,7 +92,7 @@ def _get_output(action, testname, lib, session):
 
     elif testname in ['FNG-BKT', 'FNG-W', 'ASPIS-Fe88']:
         if action == 'compare':
-            out = expo.FNGBKTOutput(lib, testname, session, multiplerun=True)
+            out = expo.ShieldingOutput(lib, testname, session, multiplerun=True)
         elif action == 'pp':
             print(exp_pp_message)
             return False
