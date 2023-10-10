@@ -147,7 +147,7 @@ class ExperimentalOutput(BenchmarkOutput):
         for lib in self.lib:
             globalname = globalname + lib + '_Vs_'
         globalname = globalname[:-4]
-
+        globalname = self.testname + '_' + globalname
         # Initialize the atlas
         template = os.path.join(self.code_path, 'templates',
                                 'AtlasTemplate.docx')
