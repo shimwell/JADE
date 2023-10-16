@@ -126,13 +126,21 @@ CYL_SDDR_XTICKS = {"'22-1'": 'Hole Front',
 # --- exp data plot ---
 EXP_DATA_LINESTYLES = ['--', '-.', ':']*50
 
-
+MULTIPLYING_FACTORS = {'Tiara-BC': [[1, 1, 1]],
+                       'FNS': [[1, 0.1, 0.01, 0.001, 0.0001]],
+                       'TUD-Fe': [[1, 0.1, 0.01]],
+                       'TUD-FNG': [[1, 1],
+                                   [1, 1]],
+                       'TUD-W': [[1, 1, 1, 1]]}
 # ============================================================================
 #                   Plotter Class
 # ============================================================================
+
+
 class Plotter:
     def __init__(self, data, title, outpath, outname, quantity, unit, xlabel,
-                 testname, ext=DEFAULT_EXTENSION):
+                 testname, ext=DEFAULT_EXTENSION, group_num=None,
+                 add_labels=None):
         """
         Object Handling plots
 
@@ -171,7 +179,8 @@ class Plotter:
         self.unit = unit
         self.quantity = quantity
         self.testname = testname
-
+        self.group_num = group_num
+        self.add_labels = add_labels
         # --- Useful plots parameters ---
         # May be improved in the future with additional markers and colors
         # plot decorators
@@ -222,12 +231,14 @@ class Plotter:
 
         # --- Experimental Points Plot ---
         elif plot_type == 'Experimental points':
-            if self.testname == 'Tiara-BC':  # Special actions for Tiara-BC
-                outp = self._exp_points_plot(test_name=self.testname,
-                                             x_scale='linear')
-            else:
-                outp = self._exp_points_plot(test_name=self.testname)
+            outp = self._exp_points_plot(test_name=self.testname)
 
+        elif plot_type == 'Experimental points group':
+            if self.testname == 'Tiara-BC':  # Special actions for Tiara-BC
+                outp = self._exp_points_group_plot(test_name=self.testname,
+                                                   x_scale='linear')
+            else:
+                outp = self._exp_points_group_plot(test_name=self.testname)
         # --- Experimental Points Plot ---
         elif plot_type == 'Discreet Experimental points':
             outp = self._exp_points_discreet_plot()
@@ -520,8 +531,6 @@ class Plotter:
         ax1.plot(ref['x'], ref['y'], color=self.colors[0],
                  drawstyle='steps-pre', label=ref['ylabel'],
                  linestyle='-', linewidth=2)
-        up_lim = ref['y'] + (ref['err']*ref['y'])
-        low_lim = ref['y'] - (ref['err']*ref['y'])
         ax1.fill_between(ref['x'], ref['y'] - (ref['err']*ref['y']),
                          ref['y'] + (ref['err']*ref['y']), step='pre',
                          color=self.colors[0], alpha=0.15)
@@ -580,6 +589,93 @@ class Plotter:
             # Grid
             ax.grid('True', which='major', linewidth=0.50)
             ax.grid('True', which='minor', linewidth=0.20)
+
+        return self._save()
+
+    def _exp_points_group_plot(self, test_name, y_scale='log', markersize=10,
+                               x_scale='log'):
+        """
+        Plot a simple plot that compares experimental data points with
+        computational calculation, grouping more tallies together.
+
+        Parameters
+        ----------
+        y_scale: str
+            acceppted values are the ones of matplotlib.axes.Axes.set_yscale
+            e.g. "linear", "log", "symlog", "logit", ... The default is 'log'.
+        markersize: float
+            size of the markers for experimental plots.
+
+        Returns
+        -------
+        outpath : str/path
+            path to the saved image
+
+        """
+        data = self.data
+
+        figsize = (21, 15)
+
+        # Initialize plot
+        fig, ax1 = plt.subplots(figsize=figsize)
+
+        for k, data_dic in enumerate(list(data.values())):
+            ylabel = self.quantity+' ['+self.unit+']'
+            ref = data_dic[0]
+            fact = MULTIPLYING_FACTORS[test_name][self.group_num][k]
+            y = ref['y']*fact
+            if fact == 1:
+                lab = self.add_labels[k]
+            else:
+                lab = self.add_labels[k] + ' x' + str(fact)
+            if k == 0:
+                ax1.plot(ref['x'], y, color=self.colors[0],
+                         drawstyle='steps-pre', label=ref['ylabel'],
+                         linestyle='-', linewidth=2)
+                ax1.fill_between(ref['x'], y - (ref['err']*y),
+                                 y + (ref['err']*y), step='pre',
+                                 color=self.colors[0], alpha=0.15)
+                plt.text(ref['x'][-1], y[-1], lab,
+                         backgroundcolor='w')
+            else:
+                ax1.plot(ref['x'], y, color=self.colors[0],
+                         drawstyle='steps-pre',
+                         linestyle='-', linewidth=2)
+                ax1.fill_between(ref['x'], y - (ref['err']*y),
+                                 y + (ref['err']*y), step='pre',
+                                 color=self.colors[0], alpha=0.15)
+                plt.text(ref['x'][-1], y[-1], lab,
+                         backgroundcolor='w')
+            for i, dic in enumerate(data_dic[1:]):
+                # Plot the flux
+                fact = MULTIPLYING_FACTORS[test_name][self.group_num][k]
+                y = dic['y']*MULTIPLYING_FACTORS[test_name][self.group_num][k]
+                if k == 0:
+                    ax1.plot(dic['x'], y, color=self.colors[i+1],
+                             drawstyle='steps-pre', label=dic['ylabel'],
+                             linestyle=EXP_DATA_LINESTYLES[i], linewidth=2,
+                             zorder=2)
+                else:
+                    ax1.plot(dic['x'], y, color=self.colors[i+1],
+                             drawstyle='steps-pre',
+                             linestyle=EXP_DATA_LINESTYLES[i], linewidth=2,
+                             zorder=2)
+        # --- Plot details ---
+        # ax 1 details
+        ax1.set_yscale(y_scale)
+        ax1.set_title(self.title)
+        ax1.set_ylabel(ylabel)
+        ax1.legend(loc='best')
+        ax1.set_xlabel(self.xlabel)
+        # # Draw the exp error
+        ax1.set_xscale(x_scale)
+
+        ax1.tick_params(which='major', width=1.00, length=5)
+        ax1.tick_params(which='minor', width=0.75, length=2.50)
+
+        # Grid
+        ax1.grid('True', which='major', linewidth=0.50)
+        ax1.grid('True', which='minor', linewidth=0.20)
 
         return self._save()
 

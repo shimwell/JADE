@@ -40,6 +40,26 @@ import re
 MCNP_UNITS = {'Energy': 'MeV',
               'Time': 'shakes'}
 
+GROUP_TALLIES = {'Tiara-BC': [[14, 24, 34]],
+                 'FNS': [[5, 15, 25, 35, 45]],
+                 'TUD-Fe': [['A0', 'A1', 'A2']],
+                 'TUD-FNG': [[504, 524],
+                             [514, 534]],
+                 'TUD-W': [['pos1', 'pos2', 'pos3', 'pos4']]}
+
+GROUP_BY = {'Tiara-BC': 'tally',
+            'FNS': 'tally',
+            'TUD-Fe': 'input',
+            'TUD-FNG': 'tally',
+            'TUD-W': 'input'}
+
+TALLY_NORMALIZATION = {'Tiara-BC': 'lethargy',
+                       'FNS': 'lethargy',
+                       'Oktavian': 'lethargy',
+                       'TUD-Fe': 'energy bins',
+                       'TUD-W': 'energy bins',
+                       'TUD-FNG': 'energy bins'}
+
 
 class ExperimentalOutput(BenchmarkOutput):
     def __init__(self, *args, **kwargs):
@@ -611,35 +631,20 @@ class SpectrumOutput(ExperimentalOutput):
             # Loop over tallies
             for tally in self.outputs[(input, self.lib[1])].mctal.tallies:
                 # Get tally number and info
-                tallynum = tally.tallyNumber
-                comment = str(tally.tallyComment)[2:-2]
-                particle = tally.particleList[np.where(
-                    tally.tallyParticles == 1)[0][0]]
-                # Set title and header
-                title = comment
-                if tally.nErg > 1:
-                    xlabel = 'Energy [Mev]'
-                elif tally.nTim > 1:
-                    xlabel = 'Time [shakes]'
+                tallynum, comment, particle, title, xlabel = self._get_tally_info(tally)
                 # Collect data
                 e_int = [3.5, 10, 20]  # to be handled later
                 data, xlabel, ylabel = self._data_collect(input, str(tallynum),
-                                                          particle, input,
+                                                          comment,
                                                           e_intervals=e_int)
                 if not data:
                     continue
-                if not self.multiplerun:
-                    head = self.testname + ', ' + comment + '\n'
-                elif self.testname == 'Tiara-BC':
-                    head = self.testname + ', ' + comment + '\n'
-                else:
-                    head = self.testname + ' ' + input + ', ' + comment + '\n'
-                atlas.doc.add_heading(head, level=1)
 
                 pattern = r'\[(.*?)\]'
                 # Use re.findall to extract all substrings between '[' and ']'
                 unit = re.findall(pattern, ylabel)[0]
                 quantity = re.sub(pattern, '', ylabel)
+                self._define_header(comment, input, atlas, particle, quantity)
 
                 # Once the data is collected it is passed to the plotter
                 outname = 'tmp'
@@ -650,60 +655,114 @@ class SpectrumOutput(ExperimentalOutput):
                 atlas.insert_img(img_path)
 
         # Dump C/E table
-        # self._dump_ce_table()
+        self._dump_ce_table()
 
         return atlas
+
+    def _get_tally_info(self, tally):
+        tallynum = tally.tallyNumber
+        comment = str(tally.tallyComment)[2:-2]
+        particle = tally.particleList[np.where(tally.tallyParticles == 1)[0
+                                                                          ][0]]
+        # Set title and header
+        title = comment
+        if tally.nErg > 1:
+            xlabel = 'Energy [Mev]'
+        elif tally.nTim > 1:
+            xlabel = 'Time [shakes]'
+        return tallynum, comment, particle, title, xlabel
+
+    def _define_header(self, comment, input, atlas, particle, quantity):
+
+        if not self.multiplerun:
+            head = self.testname + ', ' + comment + '\n'
+        else:
+            head = self.testname + ' ' + input + ', ' + comment + '\n'
+        atlas.doc.add_heading(head, level=1)
+        return head
 
     def _dump_ce_table(self):
 
         print(' Dump the C/E table in Excel...')
 
         final_table = pd.concat(self.tables)
-        todump = final_table.set_index(['Material', 'Particle', 'Library'])
-        ex_outpath = os.path.join(self.excel_path, 'C over E table.xlsx')
+        skipcol_global = 0
+        binning_list = ['Energy', 'Time']
+        for x_ax in binning_list:   # to update if other binning will be used
 
-        # Create a Pandas Excel writer using XlsxWriter as the engine.
-        writer = pd.ExcelWriter(ex_outpath, engine='xlsxwriter')
-        # dump global table
-        todump = todump[['Min E', 'Max E', 'C/E', 'Standard Deviation (σ)', ]]
+            x_lab = x_ax[0]
+            col_check = 'Max ' + x_lab
+            ft = final_table.set_index(['Input'])
 
-        todump.to_excel(writer, sheet_name='Global')
+            if col_check not in final_table.columns.tolist():
+                continue
+            else:
+                todump = final_table.set_index(['Input', 'Quantity',
+                                                'Library'])
+            for binning in binning_list:
+                if binning == x_ax:
+                    continue
+                else:
+                    # if tallies only have one type of binning KeyError could arise
+                    try:
+                        todump = todump.drop(columns=['Min ' + binning[0],
+                                                      'Max ' + binning[0]])
+                        ft = ft.drop(columns=['Min ' + binning[0],
+                                              'Max ' + binning[0]])
+                    except KeyError:
+                        continue
 
-        # Elaborate table for better output format
-        ft = final_table.set_index(['Material'])
-        # ft['Energy Range [MeV]'] = (ft['Min E'].astype(str) + ' - ' +
-        #                            ft['Max E'].astype(str))
-        ft['E-min [MeV]'] = ft['Min E']
-        ft['E-max [MeV]'] = ft['Max E']
+            todump = todump.dropna(subset=['Max ' + x_lab])
+            ft = ft.dropna(subset=['Max ' + x_lab])
+            ex_outpath = os.path.join(self.excel_path,
+                                      'C over E table ' + x_ax + '.xlsx')
 
-        ft['C/E (mean +/- σ)'] = (ft['C/E'].round(2).astype(str) + ' +/- ' +
-                                  ft['Standard Deviation (σ)'].round(2).astype(str))
-        # Delete all confusing columns
-        for column in ['Min E', 'Max E', 'C/E', 'Standard Deviation (σ)', ]:
-            del ft[column]
+            # Create a Pandas Excel writer using XlsxWriter as the engine.
+            writer = pd.ExcelWriter(ex_outpath, engine='xlsxwriter')
+            # dump global table
+            todump = todump[['Min ' + x_lab, 'Max ' + x_lab, 'C/E',
+                             'Standard Deviation (σ)', ]]
 
-        # Dump also table material by material
-        for material in self.inputs:
-            # dump material table
-            todump = ft.loc[material]
-            todump = todump.pivot(index=['Particle', 'E-min [MeV]', 
-                'E-max [MeV]'], columns='Library', values='C/E (mean +/- σ)')
+            todump.to_excel(writer, sheet_name='Global')
+            col_min = x_lab + '-min ' + '[' + MCNP_UNITS[x_ax] + ']'
+            col_max = x_lab + '-max ' + '[' + MCNP_UNITS[x_ax] + ']'
+            # Elaborate table for better output format
 
-            todump.sort_values(by=['E-min [MeV]'])
+            ft[col_min] = ft['Min ' + x_lab]
+            ft[col_max] = ft['Max ' + x_lab]
 
-            todump.to_excel(writer, sheet_name=material, startrow=2)
-            ws = writer.sheets[material]
-            ws.write_string(0, 0, '"C/E (mean +/- σ)"')
+            ft['C/E (mean +/- σ)'] = (ft['C/E'].round(2).astype(str) + ' +/- ' +
+                                      ft['Standard Deviation (σ)'
+                                         ].round(2).astype(str))
+            # Delete all confusing columns
+            for column in ['Min ' + x_lab, 'Max ' + x_lab, 'C/E',
+                           'Standard Deviation (σ)', ]:
+                del ft[column]
 
-            # adjust columns' width
-            writer.sheets[material].set_column(0, 4, 18)
+            # Dump also table material by material
+            for input in self.inputs:
+                # dump material table
+                todump = ft.loc[input]
+
+                todump = todump.pivot(index=['Quantity', col_min, col_max],
+                                      columns='Library',
+                                      values='C/E (mean +/- σ)')
+
+                todump.sort_values(by=[col_min])
+
+                todump.to_excel(writer, sheet_name=input, startrow=2)
+                ws = writer.sheets[input]
+                if skipcol_global == 0:
+                    ws.write_string(0, 0, '"C/E (mean +/- σ)"')
+
+                # adjust columns' width
+                writer.sheets[input].set_column(0, 4, 18)
 
         # Close the Pandas Excel writer and output the Excel file.
-        writer.save()
+            writer.save()
         return
 
-    def _data_collect(self, input, tallynum, particle,
-                      mat_read_file, e_intervals):
+    def _data_collect(self, input, tallynum, comment, e_intervals):
 
         if self.multiplerun:
             filename = self.testname + '_' + input + '_' + str(tallynum)
@@ -731,15 +790,15 @@ class SpectrumOutput(ExperimentalOutput):
             lib_name = self.session.conf.get_lib_name(lib_tag)
             try:  # The tally may not be defined
                 # Data for the plotter
-                values = self.results[mat_read_file, lib_tag][tallynum]
+                values = self.results[input, lib_tag][tallynum]
                 lib = {'x': values[x_lab], 'y': values['C'],
                        'err': values['Error'], 'ylabel': lib_name}
                 data.append(lib)
                 # data for the table
                 table = _get_tablevalues(values, interpolator, x=x_lab,
                                          e_intervals=e_intervals)
-                table['Particle'] = particle
-                table['Material'] = input
+                table['Quantity'] = comment
+                table['Input'] = input
                 table['Library'] = lib_name
                 self.tables.append(table)
             except KeyError:
@@ -793,20 +852,32 @@ class SpectrumOutput(ExperimentalOutput):
         energies = data[x_axis].values
         errors = data['Error'].values
 
-        # Energies for lethargy computation
-        ergs = [1e-10]  # Additional "zero" energy for lethargy computation
-        ergs.extend(energies.tolist())
-        ergs = np.array(ergs)
+        if TALLY_NORMALIZATION[self.testname] == 'lethargy':
+            # Energies for lethargy computation
+            ergs = [1e-10]  # Additional "zero" energy for lethargy computation
+            ergs.extend(energies.tolist())
+            ergs = np.array(ergs)
 
-        # Different behaviour for photons and neutrons
-        for tally in output.mctal.tallies:
-            if tallynum == str(tally.tallyNumber):
-                particle = tally.particleList[np.where(
-                    tally.tallyParticles == 1)[0][0]]
-        if particle == 'Neutron':
-            flux = flux/np.log((ergs[1:]/ergs[:-1]))
-        elif particle == 'Photon':
-            flux = flux/(ergs[1:]-ergs[:-1])
+            # Different behaviour for photons and neutrons
+            for tally in output.mctal.tallies:
+                if tallynum == str(tally.tallyNumber):
+                    particle = tally.particleList[np.where(
+                        tally.tallyParticles == 1)[0][0]]
+            if particle == 'Neutron':
+                flux = flux/np.log((ergs[1:]/ergs[:-1]))
+            elif particle == 'Photon':
+                flux = flux/(ergs[1:]-ergs[:-1])
+
+        elif TALLY_NORMALIZATION[self.testname] == 'energy bins':
+            # Energies for lethargy computation
+            data['bin'] = None
+
+            prev_e = 0
+
+            for e in data[x_axis].unique().tolist():
+                data.loc[data[x_axis] == e, 'bin'] = e - prev_e
+                prev_e = e
+            flux = flux / data['bin'].values
         return flux, energies, errors
 
 
@@ -1579,21 +1650,98 @@ class ShieldingOutput(ExperimentalOutput):
         return conv_df
 
 
-class TUDFeOutput(SpectrumOutput):
+class MultipleSpectrumOutput(SpectrumOutput):
 
-    def _parse_data_df(self, data, output, x_axis, tallynum):
-        # Generate a folder for each library
-        flux = data['Value'].values
-        energies = data[x_axis].values
-        errors = data['Error'].values
+    def _build_atlas(self, tmp_path, atlas):
+        """
+        See ExperimentalOutput documentation
 
-        # Energies for lethargy computation
-        data['bin'] = None
+        """
+        self.tables = []
 
-        prev_e = 0
+        if GROUP_BY[self.testname] == 'tally':
+            for input in self.inputs:
+                self._plot_tally_group(input, tmp_path, atlas)
+        elif GROUP_BY[self.testname] == 'input':
+            tally_numbers = []
+            for tally in self.outputs[(self.inputs[0], self.lib[1])].mctal.tallies:
+                tally_numbers.append(tally.tallyNumber)
+            for talnum in tally_numbers:
+                self._plot_tally_group(talnum, tmp_path, atlas)
+        # Dump C/E table
+        self._dump_ce_table()
 
-        for e in data[x_axis].unique().tolist():
-            data.loc[data[x_axis] == e, 'bin'] = e - prev_e
-            prev_e = e
-        flux = flux / data['bin'].values
-        return flux, energies, errors
+        return atlas
+
+    def _plot_tally_group(self, var, tmp_path, atlas):
+
+        for j, group in enumerate(GROUP_TALLIES[self.testname]):
+            data_group = {}
+            group_lab = []
+            for k, var_2 in enumerate(group):
+                tally = None
+                if GROUP_BY[self.testname] == 'tally':
+                    input = var
+                    tal = var_2
+                elif GROUP_BY[self.testname] == 'input':
+                    input = var_2
+                    tal = var
+                tal_lis = self.outputs[(input,
+                                        self.lib[1])].mctal.tallies
+                for tally_dummy in tal_lis:
+                    if tally_dummy.tallyNumber == tal:
+                        tally = tally_dummy
+                        break
+                if tally is None:
+                    continue
+                # Get tally number and info
+                tallynum, comment, particle, title, xlabel = self._get_tally_info(tally)
+                if GROUP_BY[self.testname] == 'tally':
+                    group_lab.append(comment)
+                elif GROUP_BY[self.testname] == 'input':
+                    group_lab.append(var_2)
+                data_temp, xlabel, ylabel = self._data_collect(input,
+                                                               str(tallynum),
+                                                               comment, e_intervals=[3.5,10,20])
+
+                if not data_temp:  # check that exp data is available
+                    continue
+
+                data_group[var_2] = data_temp
+                pattern = r'\[(.*?)\]'
+                unit = re.findall(pattern, ylabel)[0]
+                quantity = re.sub(pattern, '', ylabel)
+                title = particle + ' ' + quantity
+            # Once the data is collected it is passed to the plotter
+            outname = 'tmp'
+            plot = Plotter(data_group, title, tmp_path, outname, quantity,
+                           unit, xlabel, self.testname, group_num=j,
+                           add_labels=group_lab)
+            img_path = plot.plot('Experimental points group')
+            self._define_header(comment, input, atlas, particle, quantity)
+            atlas.insert_img(img_path)
+
+    def _define_header(self, comment, input, atlas, particle, quantity):
+
+        if not self.multiplerun:
+            head = self.testname + ', ' + particle + ' ' + \
+                quantity + '\n'
+        elif self.testname == 'Tiara-BC':
+            mat = input.split('-')[0]
+            if mat == 'cc':
+                material = 'Concrete'
+            else:
+                material = 'Iron'
+            energy = input.split('-')[1]
+            sh_th = input.split('-')[2]
+            add_coll = input.split('-')[3]
+            head = self.testname + ', ' + 'Shield material: ' + \
+                material + ', Source energy: ' + energy + ' MeV, ' + \
+                'Shield thickness: ' + sh_th + ' cm' + \
+                ', Additional collimator: ' + add_coll + ' cm' + '\n'
+        else:
+            head = self.testname + ', ' + particle + ' ' + \
+                quantity + '\n'
+        atlas.doc.add_heading(head, level=1)
+
+        return

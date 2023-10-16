@@ -62,16 +62,24 @@ def _get_output(action, testname, lib, session):
     elif testname == 'SphereSDDR':
         out = spho.SphereSDDRoutput(lib, testname, session)
 
-    elif testname in ['Oktavian', 'Tiara-BC', 'FNS']:
+    elif testname in ['Oktavian']:
         if action == 'compare':
             out = expo.SpectrumOutput(lib, testname, session, multiplerun=True)
         elif action == 'pp':
             print(exp_pp_message)
             return False
 
+    elif testname in ['Tiara-BC', 'FNS', 'TUD-Fe', 'TUD-W']:
+        if action == 'compare':
+            out = expo.MultipleSpectrumOutput(lib, testname,
+                                              session, multiplerun=True)
+        elif action == 'pp':
+            print(exp_pp_message)
+            return False
+
     elif testname in ['TUD-FNG']:
         if action == 'compare':
-            out = expo.TUDFeOutput(lib, testname, session)
+            out = expo.MultipleSpectrumOutput(lib, testname, session)
         elif action == 'pp':
             print(exp_pp_message)
             return False
@@ -92,7 +100,8 @@ def _get_output(action, testname, lib, session):
 
     elif testname in ['FNG-BKT', 'FNG-W', 'ASPIS-Fe88']:
         if action == 'compare':
-            out = expo.ShieldingOutput(lib, testname, session, multiplerun=True)
+            out = expo.ShieldingOutput(lib, testname, session,
+                                       multiplerun=True)
         elif action == 'pp':
             print(exp_pp_message)
             return False
@@ -100,13 +109,6 @@ def _get_output(action, testname, lib, session):
     elif testname == 'FNG':
         if action == 'compare':
             out = expo.FNGOutput(lib, testname, session, multiplerun=True)
-        elif action == 'pp':
-            print(exp_pp_message)
-            return False
-
-    elif testname in ['TUD-Fe', 'TUD-W']:
-        if action == 'compare':
-            out = expo.TUDFeOutput(lib, testname, session, multiplerun=True)
         elif action == 'pp':
             print(exp_pp_message)
             return False
