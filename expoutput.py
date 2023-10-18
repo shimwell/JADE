@@ -41,7 +41,7 @@ MCNP_UNITS = {'Energy': 'MeV',
               'Time': 'shakes'}
 
 TALLY_NORMALIZATION = {'Tiara-BC': 'lethargy',
-                       'FNS': 'lethargy',
+                       'FNS-TOF': 'lethargy',
                        'Oktavian': 'lethargy',
                        'TUD-Fe': 'energy bins',
                        'TUD-W': 'energy bins',
@@ -205,18 +205,18 @@ class ExperimentalOutput(BenchmarkOutput):
                     mfile, ofile = self._get_output_files(test_path)
                     # Parse output
                     output = MCNPoutput(mfile, ofile)
-                    outputs['single', lib] = output
+                    outputs[self.testname, lib] = output
                     # Adjourn raw Data
-                    self.raw_data['single', lib] = output.tallydata
+                    self.raw_data[self.testname, lib] = output.tallydata
                     # Get the meaningful results
-                    results['single', lib] = self._processMCNPdata(output)
+                    results[self.testname, lib] = self._processMCNPdata(output)
 
         self.outputs = outputs
         self.results = results
         if inputs:
             self.inputs = inputs
         else:
-            self.inputs = ['single']
+            self.inputs = [self.testname]
 
     def _read_exp_results(self):
         """
@@ -249,14 +249,14 @@ class ExperimentalOutput(BenchmarkOutput):
         else:
             # Iterate on each each file, read it and
             # build the result dic
-            exp_results['single'] = {}
+            exp_results[self.testname] = {}
             for file in os.listdir(self.path_exp_res):
                 filename = file.split('.')[0]
                 filepath = os.path.join(self.path_exp_res, file)
                 df = self._read_exp_file(filepath)
                 c = df.columns.tolist()[1]
                 df = df[df[c] > 2e-38]
-                exp_results['single'][filename] = df
+                exp_results[self.testname][filename] = df
 
         self.exp_results = exp_results
 
@@ -290,7 +290,7 @@ class ExperimentalOutput(BenchmarkOutput):
                 os.mkdir(cd_lib)
             # Dump everything
             for key, data in item.items():
-                if folder == 'single':
+                if folder == self.testname:
                     file = os.path.join(cd_lib, str(key)+'.csv')
                 else:
                     file = os.path.join(cd_lib,
@@ -613,7 +613,7 @@ class SpectrumOutput(ExperimentalOutput):
         """
         self.tables = []
         self.bench_conf = pd.read_excel(self.cnf_path)
-        self.bench_conf = self.bench_conf.set_index(['Tally', 'Input'])
+        self.bench_conf = self.bench_conf.set_index(['Tally'])
         # Loop over benchmark cases
         for input in tqdm(self.inputs, desc=' Inputs: '):
             # Loop over tallies
@@ -621,20 +621,25 @@ class SpectrumOutput(ExperimentalOutput):
                 # Get tally number and info
                 tallynum, particle, xlabel = self._get_tally_info(tally)
                 # Collect data
-                quantity_CE = self.bench_conf.loc[(tallynum, input),
+                quantity_CE = self.bench_conf.loc[tallynum,
                                                   'Y Label']
-                e_int = [3.5, 10, 20]  # to be handled later
+                e_int = self.bench_conf.loc[tallynum,
+                                            'C/E X Quantity intervals']
+                e_int = e_int.split('-')
+
+                # Convert the list of number strings into a list of integers
+                e_intervals = [float(num) for num in e_int]
                 data, xlabel, ylabel = self._data_collect(input, str(tallynum),
                                                           quantity_CE,
-                                                          e_intervals=e_int)
+                                                          e_intervals)
                 if not data:
                     continue
 
                 # Use re.findall to extract all substrings between '[' and ']'
-                unit = self.bench_conf.loc[(tallynum, input),
-                                                  'Y Unit']
-                quantity = self.bench_conf.loc[(tallynum, input),
-                                                  'Quantity']
+                unit = self.bench_conf.loc[tallynum,
+                                           'Y Unit']
+                quantity = self.bench_conf.loc[tallynum,
+                                               'Quantity']
                 title = self._define_title(input, particle, quantity)
                 atlas.doc.add_heading(self.testname, level=1)
                 # Once the data is collected it is passed to the plotter
@@ -686,7 +691,7 @@ class SpectrumOutput(ExperimentalOutput):
                 continue
             else:
                 todump = final_table.set_index(['Input', 'Quantity',
-                                                'Tally', 'Library'])
+                                                'Library'])
             for binning in binning_list:
                 if binning == x_ax:
                     continue
@@ -1676,9 +1681,12 @@ class MultipleSpectrumOutput(SpectrumOutput):
                                       'Particle']
             add_info = group_data.loc[(group, tallynum, input), 'Y Label']
             quant_string = particle + ' ' + quantity + ' ' + add_info
-            e_intervals = group_data.loc[(group, tallynum, input),
-                                         'C/E X Quantity intervals']
+            e_int = group_data.loc[(group, tallynum, input),
+                                   'C/E X Quantity intervals']
+            e_int = e_int.split('-')
 
+            # Convert the list of number strings into a list of integers
+            e_intervals = [float(num) for num in e_int]
             data_temp, xlabel, ylabel = self._data_collect(input,
                                                            str(tallynum),
                                                            quant_string,
@@ -1698,7 +1706,9 @@ class MultipleSpectrumOutput(SpectrumOutput):
         img_path = plot.plot('Experimental points group')
         atlas.doc.add_heading(self.testname, level=1)
         atlas.insert_img(img_path)
-
+        img_path = plot.plot('Experimental points group CE')
+        atlas.doc.add_heading(self.testname, level=1)
+        atlas.insert_img(img_path)
         return atlas
 
     def _define_title(self, input, particle, quantity):
@@ -1715,10 +1725,14 @@ class MultipleSpectrumOutput(SpectrumOutput):
             sh_th = input.split('-')[2]
             add_coll = input.split('-')[3]
             title = self.testname + ', Shielding: ' + material + \
-                ', ' + sh_th + 'cm, Source energy: ' + energy + \
-                ' MeV, ' + ', Additional collimator: ' + add_coll + \
+                ', ' + sh_th + 'cm; Source energy: ' + energy + \
+                ' MeV; Additional collimator: ' + add_coll + \
                 ' cm'
-        elif self.testname in ['']:
+        elif self.testname == 'FNS-TOF':
+            mat = input.split('-')[0]
+            sl_th = input.split('-')[1]
+            title = self.testname + ', ' + sl_th + 'cm ' + mat + ' slab'
+        else:
             title = self.testname + ', ' + particle + ' ' + \
                 quantity
         return title

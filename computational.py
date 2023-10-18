@@ -104,7 +104,7 @@ def executeBenchmarksRoutines(session, lib, exp=False):
                 test = testrun.SphereTestSDDR(*args)
 
             elif fname in ['Oktavian', 'Tiara-BC', 'Tiara-BS', 'Tiara-FC',
-                           'FNS', 'FNG-BKT', 'FNG-W', 'ASPIS-Fe88', 'TUD-Fe',
+                           'FNS-TOF', 'FNG-BKT', 'FNG-W', 'ASPIS-Fe88', 'TUD-Fe',
                            'TUD-W']:
                 test = testrun.MultipleTest(*args)
 

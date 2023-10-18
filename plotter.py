@@ -54,14 +54,6 @@ plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 plt.rc('lines', markersize=12)          # Marker default size
 
-# define how to represent exp data in plots for each benchmark
-# EXP_PLOT_TYPE = {'Tiara-BC': 'bins',
-#                  'Oktavian': 'bins',
-#                  'TUD-FNG': 'bins',
-#                  'TUD-Fe': 'bins',
-#                  'TUD-W': 'bins',
-#                  'FNS': 'points'
-#                  }
 # ============================================================================
 #                   Specific data for benchmarks plots
 # ============================================================================
@@ -234,6 +226,14 @@ class Plotter:
                                                    x_scale='linear')
             else:
                 outp = self._exp_points_group_plot(test_name=self.testname)
+
+        elif plot_type == 'Experimental points group CE':
+            if self.testname == 'Tiara-BC':  # Special actions for Tiara-BC
+                outp = self._exp_points_group_plot_CE(test_name=self.testname,
+                                                      x_scale='linear')
+            else:
+                outp = self._exp_points_group_plot_CE(test_name=self.testname)
+
         # --- Experimental Points Plot ---
         elif plot_type == 'Discreet Experimental points':
             outp = self._exp_points_discreet_plot()
@@ -672,6 +672,83 @@ class Plotter:
         ax1.grid('True', which='major', linewidth=0.50)
         ax1.grid('True', which='minor', linewidth=0.20)
 
+        return self._save()
+
+    def _exp_points_group_plot_CE(self, test_name, y_scale='log', 
+                                  markersize=10, x_scale='log'):
+        """
+        Plot a simple plot that compares experimental data points with
+        computational calculation.
+
+        Also a C/E plot is added
+
+        Parameters
+        ----------
+        y_scale: str
+            acceppted values are the ones of matplotlib.axes.Axes.set_yscale
+            e.g. "linear", "log", "symlog", "logit", ... The default is 'log'.
+        markersize: float
+            size of the markers for experimental plots.
+
+        Returns
+        -------
+        outpath : str/path
+            path to the saved image
+
+        """
+        nrows = len(self.data)
+        fig, axes = plt.subplots(figsize=(21, 6.5 + 2 * nrows), nrows=nrows,
+                                 sharex=True)
+        if isinstance(axes, np.ndarray) is False:
+            axes = np.array([axes])
+
+        for key, val in enumerate(list(self.data.values())):
+
+            ref = val[0]
+            # Adjounrn ylabel
+            ylabel = 'C/E'
+
+            # Get the linear interpolation for C/E
+            interpolate = interp1d(ref['x'], ref['y'], fill_value=0,
+                                   bounds_error=False)
+
+            # Plot all data
+            try:
+                for i, dic in enumerate(val[1:]):
+                    # plot the C/E
+                    interp_ref = interpolate(dic['x'])
+                    axes[key].plot(dic['x'], dic['y']/interp_ref, color=self.colors[i+1],
+                            drawstyle='steps-pre', label=dic['ylabel'],
+                            linestyle=EXP_DATA_LINESTYLES[i], linewidth=2,
+                            zorder=2)
+            except KeyError:
+                # it is a single pp
+                return self._save()
+
+            # --- Plot details ---
+            # ax 1 details
+            axes[key].set_title(self.add_labels[key])
+            axes[key].set_ylabel(ylabel)
+
+            # limit the ax 2 to [0, 2]
+            axes[key].set_ylim(bottom=0, top=2)
+            yticks = np.arange(0, 2.5, 0.5)
+            axes[key].set_yticks(yticks)
+            axes[key].axhline(y=1, linestyle='--', color='black')
+            # # Draw the exp error
+
+            # Common for all axes
+            axes[key].set_xscale(x_scale)
+            axes[key].tick_params(which='major', width=1.00, length=5)
+            axes[key].tick_params(which='minor', width=0.75, length=2.50)
+
+            # Grid
+            axes[key].grid('True', which='major', linewidth=0.50)
+            axes[key].grid('True', which='minor', linewidth=0.20)
+
+        axes[0].legend(loc='upper center', bbox_to_anchor=(0.88, 1.5),
+                       fancybox=True, shadow=True)
+        axes[key].set_xlabel(self.xlabel)
         return self._save()
 
     def _exp_points_discreet_plot(self, y_scale='log', lowerlimit=0.5,

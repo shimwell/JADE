@@ -69,7 +69,7 @@ def _get_output(action, testname, lib, session):
             print(exp_pp_message)
             return False
 
-    elif testname in ['Tiara-BC', 'FNS', 'TUD-Fe', 'TUD-W']:
+    elif testname in ['Tiara-BC', 'FNS-TOF', 'TUD-Fe', 'TUD-W']:
         if action == 'compare':
             out = expo.MultipleSpectrumOutput(lib, testname,
                                               session, multiplerun=True)
