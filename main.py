@@ -210,7 +210,7 @@ class Session:
         # Remove the user configurations
         shutil.rmtree(os.path.dirname(self.path_cnf))
         # Copy default configurations
-        shutil.copytree(files, os.path.dirname(self.path_cnf))
+        shutil.copytree(files, os.path.dirname())
         print(DEFAULT_SETTINGS_RESTORATION)
         sys.exit()  # exit to allow for settings of key ambient variables
 

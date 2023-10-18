@@ -40,19 +40,6 @@ import re
 MCNP_UNITS = {'Energy': 'MeV',
               'Time': 'shakes'}
 
-GROUP_TALLIES = {'Tiara-BC': [[14, 24, 34]],
-                 'FNS': [[5, 15, 25, 35, 45]],
-                 'TUD-Fe': [['A0', 'A1', 'A2']],
-                 'TUD-FNG': [[504, 524],
-                             [514, 534]],
-                 'TUD-W': [['pos1', 'pos2', 'pos3', 'pos4']]}
-
-GROUP_BY = {'Tiara-BC': 'tally',
-            'FNS': 'tally',
-            'TUD-Fe': 'input',
-            'TUD-FNG': 'tally',
-            'TUD-W': 'input'}
-
 TALLY_NORMALIZATION = {'Tiara-BC': 'lethargy',
                        'FNS': 'lethargy',
                        'Oktavian': 'lethargy',
@@ -625,27 +612,31 @@ class SpectrumOutput(ExperimentalOutput):
 
         """
         self.tables = []
-
+        self.bench_conf = pd.read_excel(self.cnf_path)
+        self.bench_conf = self.bench_conf.set_index(['Tally', 'Input'])
         # Loop over benchmark cases
         for input in tqdm(self.inputs, desc=' Inputs: '):
             # Loop over tallies
             for tally in self.outputs[(input, self.lib[1])].mctal.tallies:
                 # Get tally number and info
-                tallynum, comment, particle, title, xlabel = self._get_tally_info(tally)
+                tallynum, particle, xlabel = self._get_tally_info(tally)
                 # Collect data
+                quantity_CE = self.bench_conf.loc[(tallynum, input),
+                                                  'Y Label']
                 e_int = [3.5, 10, 20]  # to be handled later
                 data, xlabel, ylabel = self._data_collect(input, str(tallynum),
-                                                          comment,
+                                                          quantity_CE,
                                                           e_intervals=e_int)
                 if not data:
                     continue
 
-                pattern = r'\[(.*?)\]'
                 # Use re.findall to extract all substrings between '[' and ']'
-                unit = re.findall(pattern, ylabel)[0]
-                quantity = re.sub(pattern, '', ylabel)
-                self._define_header(comment, input, atlas, particle, quantity)
-
+                unit = self.bench_conf.loc[(tallynum, input),
+                                                  'Y Unit']
+                quantity = self.bench_conf.loc[(tallynum, input),
+                                                  'Quantity']
+                title = self._define_title(input, particle, quantity)
+                atlas.doc.add_heading(self.testname, level=1)
                 # Once the data is collected it is passed to the plotter
                 outname = 'tmp'
                 plot = Plotter(data, title, tmp_path, outname, quantity, unit,
@@ -661,25 +652,22 @@ class SpectrumOutput(ExperimentalOutput):
 
     def _get_tally_info(self, tally):
         tallynum = tally.tallyNumber
-        comment = str(tally.tallyComment)[2:-2]
         particle = tally.particleList[np.where(tally.tallyParticles == 1)[0
                                                                           ][0]]
-        # Set title and header
-        title = comment
         if tally.nErg > 1:
             xlabel = 'Energy [Mev]'
         elif tally.nTim > 1:
             xlabel = 'Time [shakes]'
-        return tallynum, comment, particle, title, xlabel
+        return tallynum, particle, xlabel
 
-    def _define_header(self, comment, input, atlas, particle, quantity):
+    def _define_title(self, input, particle, quantity):
 
         if not self.multiplerun:
-            head = self.testname + ', ' + comment + '\n'
+            title = self.testname + ', ' + particle + ' ' + quantity
         else:
-            head = self.testname + ' ' + input + ', ' + comment + '\n'
-        atlas.doc.add_heading(head, level=1)
-        return head
+            title = self.testname + ' ' + input + ', ' + particle + ' ' + \
+                quantity
+        return title
 
     def _dump_ce_table(self):
 
@@ -698,7 +686,7 @@ class SpectrumOutput(ExperimentalOutput):
                 continue
             else:
                 todump = final_table.set_index(['Input', 'Quantity',
-                                                'Library'])
+                                                'Tally', 'Library'])
             for binning in binning_list:
                 if binning == x_ax:
                     continue
@@ -762,7 +750,7 @@ class SpectrumOutput(ExperimentalOutput):
             writer.save()
         return
 
-    def _data_collect(self, input, tallynum, comment, e_intervals):
+    def _data_collect(self, input, tallynum, quantity_CE, e_intervals):
 
         if self.multiplerun:
             filename = self.testname + '_' + input + '_' + str(tallynum)
@@ -797,7 +785,7 @@ class SpectrumOutput(ExperimentalOutput):
                 # data for the table
                 table = _get_tablevalues(values, interpolator, x=x_lab,
                                          e_intervals=e_intervals)
-                table['Quantity'] = comment
+                table['Quantity'] = quantity_CE 
                 table['Input'] = input
                 table['Library'] = lib_name
                 self.tables.append(table)
@@ -1658,74 +1646,65 @@ class MultipleSpectrumOutput(SpectrumOutput):
 
         """
         self.tables = []
+        self.groups = pd.read_excel(self.cnf_path)
+        self.groups = self.groups.set_index(['Group', 'Tally', 'Input'])
+        self.group_list = self.groups.index.get_level_values('Group').unique().tolist()
+        for group in self.group_list:
+            self._plot_tally_group(group, tmp_path, atlas)
 
-        if GROUP_BY[self.testname] == 'tally':
-            for input in self.inputs:
-                self._plot_tally_group(input, tmp_path, atlas)
-        elif GROUP_BY[self.testname] == 'input':
-            tally_numbers = []
-            for tally in self.outputs[(self.inputs[0], self.lib[1])].mctal.tallies:
-                tally_numbers.append(tally.tallyNumber)
-            for talnum in tally_numbers:
-                self._plot_tally_group(talnum, tmp_path, atlas)
         # Dump C/E table
         self._dump_ce_table()
 
         return atlas
 
-    def _plot_tally_group(self, var, tmp_path, atlas):
+    def _plot_tally_group(self, group, tmp_path, atlas):
 
-        for j, group in enumerate(GROUP_TALLIES[self.testname]):
-            data_group = {}
-            group_lab = []
-            for k, var_2 in enumerate(group):
-                tally = None
-                if GROUP_BY[self.testname] == 'tally':
-                    input = var
-                    tal = var_2
-                elif GROUP_BY[self.testname] == 'input':
-                    input = var_2
-                    tal = var
-                tal_lis = self.outputs[(input,
-                                        self.lib[1])].mctal.tallies
-                for tally_dummy in tal_lis:
-                    if tally_dummy.tallyNumber == tal:
-                        tally = tally_dummy
-                        break
-                if tally is None:
-                    continue
-                # Get tally number and info
-                tallynum, comment, particle, title, xlabel = self._get_tally_info(tally)
-                if GROUP_BY[self.testname] == 'tally':
-                    group_lab.append(comment)
-                elif GROUP_BY[self.testname] == 'input':
-                    group_lab.append(var_2)
-                data_temp, xlabel, ylabel = self._data_collect(input,
-                                                               str(tallynum),
-                                                               comment, e_intervals=[3.5,10,20])
+        # Extract 'Tally' and 'Input' values for the current 'Group'
+        group_data = self.groups.xs(group, level='Group',
+                                    drop_level=False)
+        data_group = {}
+        group_lab = []
+        mult_factors = group_data['Multiplying factor'].values.tolist()
+        for m, idx in enumerate(group_data.index.tolist()):
+            tallynum = idx[1]
+            input = idx[2]
+            if str(tallynum) not in self.results[input, self.lib[1]].keys():
+                continue
 
-                if not data_temp:  # check that exp data is available
-                    continue
+            quantity = group_data.loc[(group, tallynum, input), 'Quantity']
+            particle = group_data.loc[(group, tallynum, input),
+                                      'Particle']
+            add_info = group_data.loc[(group, tallynum, input), 'Y Label']
+            quant_string = particle + ' ' + quantity + ' ' + add_info
+            e_intervals = group_data.loc[(group, tallynum, input),
+                                         'C/E X Quantity intervals']
 
-                data_group[var_2] = data_temp
-                pattern = r'\[(.*?)\]'
-                unit = re.findall(pattern, ylabel)[0]
-                quantity = re.sub(pattern, '', ylabel)
-                title = particle + ' ' + quantity
+            data_temp, xlabel, ylabel = self._data_collect(input,
+                                                           str(tallynum),
+                                                           quant_string,
+                                                           e_intervals)
+            if data_temp is None:
+                continue
+            data_group[m] = data_temp
+            unit = group_data.loc[(group, tallynum, input), 'Y Unit']
+
+            group_lab.append(add_info)
             # Once the data is collected it is passed to the plotter
-            outname = 'tmp'
-            plot = Plotter(data_group, title, tmp_path, outname, quantity,
-                           unit, xlabel, self.testname, group_num=j,
-                           add_labels=group_lab)
-            img_path = plot.plot('Experimental points group')
-            self._define_header(comment, input, atlas, particle, quantity)
-            atlas.insert_img(img_path)
+        title = self._define_title(input, particle, quantity)
+        outname = 'tmp'
+        plot = Plotter(data_group, title, tmp_path, outname, quantity,
+                       unit, xlabel, self.testname, group_num=group,
+                       add_labels=group_lab, mult_factors=mult_factors)
+        img_path = plot.plot('Experimental points group')
+        atlas.doc.add_heading(self.testname, level=1)
+        atlas.insert_img(img_path)
 
-    def _define_header(self, comment, input, atlas, particle, quantity):
+        return atlas
+
+    def _define_title(self, input, particle, quantity):
 
         if not self.multiplerun:
-            head = self.testname + ', ' + particle + ' ' + \
-                quantity + '\n'
+            title = self.testname + ', ' + particle + ' ' + quantity
         elif self.testname == 'Tiara-BC':
             mat = input.split('-')[0]
             if mat == 'cc':
@@ -1735,13 +1714,11 @@ class MultipleSpectrumOutput(SpectrumOutput):
             energy = input.split('-')[1]
             sh_th = input.split('-')[2]
             add_coll = input.split('-')[3]
-            head = self.testname + ', ' + 'Shield material: ' + \
-                material + ', Source energy: ' + energy + ' MeV, ' + \
-                'Shield thickness: ' + sh_th + ' cm' + \
-                ', Additional collimator: ' + add_coll + ' cm' + '\n'
-        else:
-            head = self.testname + ', ' + particle + ' ' + \
-                quantity + '\n'
-        atlas.doc.add_heading(head, level=1)
-
-        return
+            title = self.testname + ', Shielding: ' + material + \
+                ', ' + sh_th + 'cm, Source energy: ' + energy + \
+                ' MeV, ' + ', Additional collimator: ' + add_coll + \
+                ' cm'
+        elif self.testname in ['']:
+            title = self.testname + ', ' + particle + ' ' + \
+                quantity
+        return title

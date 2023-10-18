@@ -126,12 +126,6 @@ CYL_SDDR_XTICKS = {"'22-1'": 'Hole Front',
 # --- exp data plot ---
 EXP_DATA_LINESTYLES = ['--', '-.', ':']*50
 
-MULTIPLYING_FACTORS = {'Tiara-BC': [[1, 1, 1]],
-                       'FNS': [[1, 0.1, 0.01, 0.001, 0.0001]],
-                       'TUD-Fe': [[1, 0.1, 0.01]],
-                       'TUD-FNG': [[1, 1],
-                                   [1, 1]],
-                       'TUD-W': [[1, 1, 1, 1]]}
 # ============================================================================
 #                   Plotter Class
 # ============================================================================
@@ -140,7 +134,7 @@ MULTIPLYING_FACTORS = {'Tiara-BC': [[1, 1, 1]],
 class Plotter:
     def __init__(self, data, title, outpath, outname, quantity, unit, xlabel,
                  testname, ext=DEFAULT_EXTENSION, group_num=None,
-                 add_labels=None):
+                 add_labels=None, mult_factors=None):
         """
         Object Handling plots
 
@@ -181,6 +175,7 @@ class Plotter:
         self.testname = testname
         self.group_num = group_num
         self.add_labels = add_labels
+        self.mult_factors = mult_factors
         # --- Useful plots parameters ---
         # May be improved in the future with additional markers and colors
         # plot decorators
@@ -622,7 +617,7 @@ class Plotter:
         for k, data_dic in enumerate(list(data.values())):
             ylabel = self.quantity+' ['+self.unit+']'
             ref = data_dic[0]
-            fact = MULTIPLYING_FACTORS[test_name][self.group_num][k]
+            fact = self.mult_factors[k]
             y = ref['y']*fact
             if fact == 1:
                 lab = self.add_labels[k]
@@ -635,7 +630,7 @@ class Plotter:
                 ax1.fill_between(ref['x'], y - (ref['err']*y),
                                  y + (ref['err']*y), step='pre',
                                  color=self.colors[0], alpha=0.15)
-                plt.text(ref['x'][-1], y[-1], lab,
+                plt.text(ref['x'][int(len(y)/2)], y[int(len(y)/2)], lab,
                          backgroundcolor='w')
             else:
                 ax1.plot(ref['x'], y, color=self.colors[0],
@@ -644,12 +639,12 @@ class Plotter:
                 ax1.fill_between(ref['x'], y - (ref['err']*y),
                                  y + (ref['err']*y), step='pre',
                                  color=self.colors[0], alpha=0.15)
-                plt.text(ref['x'][-1], y[-1], lab,
+                plt.text(ref['x'][int(len(y)/2)], y[int(len(y)/2)], lab,
                          backgroundcolor='w')
             for i, dic in enumerate(data_dic[1:]):
                 # Plot the flux
-                fact = MULTIPLYING_FACTORS[test_name][self.group_num][k]
-                y = dic['y']*MULTIPLYING_FACTORS[test_name][self.group_num][k]
+                fact = self.mult_factors[k]
+                y = dic['y']*self.mult_factors[k]
                 if k == 0:
                     ax1.plot(dic['x'], y, color=self.colors[i+1],
                              drawstyle='steps-pre', label=dic['ylabel'],
