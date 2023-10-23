@@ -10,11 +10,11 @@ c
 2    pz     0
 3    cz    31.4
 4    pz   -61
-5    cz     5.122
-6  1 cz     5.129
-7  2 cz     5.143
-8  3 cz     5.186
-9  4 cz     5.284
+5    cz     4.977
+6  1 cz     4.985
+7  2 cz     5.012
+8  3 cz     5.074
+9  4 cz     5.212
 10    so  1000
 
 mode   n
@@ -178,21 +178,21 @@ c
 c
 m1    6000.41c  1
 c
-f5:n          0.0    0 723.0000  1    nd
+f5:n   0.0     0  703.0000   1    nd
 fc5  Neutron leakage flux at 0 degrees
-fm5 6447.618
-f15:n        152.999  0 707.649   1   nd
+fm5 6351.386
+f15:n  148.7973  0  688.2148   1   nd
 fc15  Neutron leakage flux at 12.2 degrees
-fm15 6465.464 
-f25:n        305.672  0 658.514   1   nd
+fm15 6350.664
+f25:n   298.0163  0  642.0212   1   nd
 fc25  Neutron leakage flux at 24.9 degrees 
-fm25 6501.237
-f35:n        487.901  0 545.688   1   nd
+fm25 6348.071
+f35:n   477.4981  0  534.0526   1   nd
 fc35  Neutron leakage flux at 41.8 degrees
-fm35 6609.124
-f45:n        685.675  0 293.881   1   nd
+fm35 6344.25
+f45:n   676.2307  0  289.8328   1   nd
 fc45  Neutron leakage flux at 66.8 degrees
-fm45 6864.368 
+fm45 6341.975
 c
 c   Boundary energy for the experimental data in MeV
 c

@@ -43,11 +43,11 @@ FNS, material O, thickness 20.24 cm
 26    sz    77.6727  102.8227
 27    sz  -129.7227  102.8227
 28    sz  -129.6727  102.8227
-29    cz     4.977
-30  1 cz     4.985
-31  2 cz     5.012
-32  3 cz     5.074
-33  4 cz     5.212
+29    cz     5.122
+30  1 cz     5.128
+31  2 cz     5.146
+32  3 cz     5.189
+33  4 cz     5.282
 34    so  1000.0
 
 mode   n
@@ -219,21 +219,21 @@ c
 c m4: oxygen
 m4     8016.41c     1.00000e+00
 c
-f5:n   0.0     0  703.0000   1    nd
+f5:n          0.0    0 723.0000  1    nd
 fc5  Neutron leakage flux at 0 degrees
-fm5 6095.837
-f15:n  148.7973  0  688.2148   1   nd
+fm5 6342.321
+f15:n        152.999  0 707.649   1   nd
 fc15  Neutron leakage flux at 12.2 degrees
-fm15 6115.218
-f25:n   298.0163  0  642.0212   1   nd
+fm15 6342.148 
+f25:n        305.672  0 658.514   1   nd
 fc25  Neutron leakage flux at 24.9 degrees 
-fm25 6179.662
-f35:n   477.4981  0  534.0526   1   nd
+fm25 6341.878
+f35:n        487.901  0 545.688   1   nd
 fc35  Neutron leakage flux at 41.8 degrees
-fm35 6330.287
-f45:n   676.2307  0  289.8328   1   nd
+fm35 6341.653
+f45:n        685.675  0 293.881   1   nd
 fc45  Neutron leakage flux at 66.8 degrees
-fm45 6676.572
+fm45 6344.347
 c
 c  Boundary energy for the experimental data in MeV:
 c

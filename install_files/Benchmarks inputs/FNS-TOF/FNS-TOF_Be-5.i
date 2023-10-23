@@ -143,19 +143,16 @@ m1    4009.41c  1
 c
 f5:n     0.0      0  738.0000   1    nd
 fc5  Neutron leakage flux at 0 degrees
-fm5 6717.929
-f15:n   156.16903  0  722.31035  1   nd
-fc15  Neutron leakage flux at 12.2 degrees
-fm15 6736.147
+fm5 6342.273
 f25:n   311.5665   0  671.21257  1   nd
 fc25  Neutron leakage flux at 24.9 degrees 
-fm25 6754.39
+fm25 6342.661
 f35:n    495.90016  0  554.63414  1   nd
 fc35  Neutron leakage flux at 41.8 degrees
-fm35 6827.608
+fm35 6343.7
 f45:n   692.10891  0  296.63826  1   nd
 fc45  Neutron leakage flux at 66.8 degrees
-fm45 6993.791
+fm45 6347.267
 c
 c   Boundary energy for the experimental data in MeV
 c
