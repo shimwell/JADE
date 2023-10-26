@@ -629,9 +629,8 @@ class SpectrumOutput(ExperimentalOutput):
 
                 # Convert the list of number strings into a list of integers
                 e_intervals = [float(num) for num in e_int]
-                data, xlabel, ylabel = self._data_collect(input, str(tallynum),
-                                                          quantity_CE,
-                                                          e_intervals)
+                data, xlabel = self._data_collect(input, str(tallynum),
+                                                  quantity_CE, e_intervals)
                 if not data:
                     continue
 
@@ -641,7 +640,7 @@ class SpectrumOutput(ExperimentalOutput):
                 quantity = self.bench_conf.loc[tallynum,
                                                'Quantity']
                 title = self._define_title(input, particle, quantity)
-                atlas.doc.add_heading(self.testname, level=1)
+                atlas.doc.add_heading(title, level=1)
                 # Once the data is collected it is passed to the plotter
                 outname = 'tmp'
                 plot = Plotter(data, title, tmp_path, outname, quantity, unit,
@@ -659,11 +658,9 @@ class SpectrumOutput(ExperimentalOutput):
         tallynum = tally.tallyNumber
         particle = tally.particleList[np.where(tally.tallyParticles == 1)[0
                                                                           ][0]]
-        if tally.nErg > 1:
-            xlabel = 'Energy [Mev]'
-        elif tally.nTim > 1:
-            xlabel = 'Time [shakes]'
-        return tallynum, particle, xlabel
+        quant = self.bench_conf.loc[tallynum, 'X Quantity']
+        unit = self.bench_conf.loc[tallynum, 'X Unit']
+        return tallynum, particle, quant + ' [' + unit + ']'
 
     def _define_title(self, input, particle, quantity):
 
@@ -790,14 +787,14 @@ class SpectrumOutput(ExperimentalOutput):
                 # data for the table
                 table = _get_tablevalues(values, interpolator, x=x_lab,
                                          e_intervals=e_intervals)
-                table['Quantity'] = quantity_CE 
+                table['Quantity'] = quantity_CE
                 table['Input'] = input
                 table['Library'] = lib_name
                 self.tables.append(table)
             except KeyError:
                 # The tally is not defined
                 pass
-        return data, x_lab, y_lab
+        return data, x_lab
 
     def _pp_excel_comparison(self):
         # Excel is actually printed by the build atlas in this case
@@ -1687,10 +1684,8 @@ class MultipleSpectrumOutput(SpectrumOutput):
 
             # Convert the list of number strings into a list of integers
             e_intervals = [float(num) for num in e_int]
-            data_temp, xlabel, ylabel = self._data_collect(input,
-                                                           str(tallynum),
-                                                           quant_string,
-                                                           e_intervals)
+            data_temp, xlabel = self._data_collect(input, str(tallynum),
+                                                   quant_string, e_intervals)
             if data_temp is None:
                 continue
             data_group[m] = data_temp
@@ -1707,7 +1702,7 @@ class MultipleSpectrumOutput(SpectrumOutput):
         atlas.doc.add_heading(self.testname, level=1)
         atlas.insert_img(img_path)
         img_path = plot.plot('Experimental points group CE')
-        atlas.doc.add_heading(self.testname, level=1)
+        atlas.doc.add_heading(title, level=1)
         atlas.insert_img(img_path)
         return atlas
 
