@@ -621,9 +621,8 @@ class SpectrumOutput(ExperimentalOutput):
                 # Get tally number and info
                 tallynum, particle, xlabel = self._get_tally_info(tally)
                 # Collect data
-                quantity_CE = self.bench_conf.loc[tallynum,
-                                                  'Y Label']
-                e_int = self.bench_conf.loc[tallynum,
+                quantity_CE = self.bench_conf.loc[tallynum, 'Y Label']
+                e_int = self.bench_conf.loc[tallynum, 
                                             'C/E X Quantity intervals']
                 e_int = e_int.split('-')
 
@@ -635,11 +634,9 @@ class SpectrumOutput(ExperimentalOutput):
                     continue
 
                 # Use re.findall to extract all substrings between '[' and ']'
-                unit = self.bench_conf.loc[tallynum,
-                                           'Y Unit']
-                quantity = self.bench_conf.loc[tallynum,
-                                               'Quantity']
-                title = self._define_title(input, particle, quantity)
+                unit = self.bench_conf.loc[tallynum, 'Y Unit']
+                quantity = self.bench_conf.loc[tallynum, 'Quantity']
+                title = self._define_title(input, quantity_CE)
                 atlas.doc.add_heading(title, level=1)
                 # Once the data is collected it is passed to the plotter
                 outname = 'tmp'
@@ -662,13 +659,12 @@ class SpectrumOutput(ExperimentalOutput):
         unit = self.bench_conf.loc[tallynum, 'X Unit']
         return tallynum, particle, quant + ' [' + unit + ']'
 
-    def _define_title(self, input, particle, quantity):
+    def _define_title(self, input, quantity_CE):
 
         if not self.multiplerun:
-            title = self.testname + ', ' + particle + ' ' + quantity
+            title = self.testname + ', ' + quantity_CE
         else:
-            title = self.testname + ' ' + input + ', ' + particle + ' ' + \
-                quantity
+            title = self.testname + ' ' + input + ', ' + quantity_CE
         return title
 
     def _dump_ce_table(self):
