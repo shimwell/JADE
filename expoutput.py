@@ -1698,7 +1698,7 @@ class MultipleSpectrumOutput(SpectrumOutput):
         atlas.doc.add_heading(self.testname, level=1)
         atlas.insert_img(img_path)
         img_path = plot.plot('Experimental points group CE')
-        atlas.doc.add_heading(title, level=1)
+        atlas.doc.add_heading(title + ' C/E', level=1)
         atlas.insert_img(img_path)
         return atlas
 
