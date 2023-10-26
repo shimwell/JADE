@@ -758,7 +758,7 @@ class SpectrumOutput(ExperimentalOutput):
         try:
             col_idx = self.exp_results[input][filename].columns.tolist()
         except KeyError:
-            return None, None, None
+            return None, None
 
         x_lab = col_idx[0]
         y_lab = col_idx[1]
