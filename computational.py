@@ -81,7 +81,8 @@ def executeBenchmarksRoutines(session, lib, exp=False):
 
             if testname in ['FNG Bulk Blanket and Shielding Experiment', 
                             'FNG Tungsten', 
-                            'ASPIS Iron-88 benchmark']:
+                            'ASPIS Iron-88 benchmark',
+                            'FNG SiC']:
                 var = {'00c': lib, '34y': '34y'}
             else:
                 var = lib
@@ -105,7 +106,7 @@ def executeBenchmarksRoutines(session, lib, exp=False):
 
             elif fname in ['Oktavian', 'Tiara-BC', 'Tiara-BS', 'Tiara-FC',
                            'FNS-TOF', 'FNG-BKT', 'FNG-W', 'ASPIS-Fe88', 'TUD-Fe',
-                           'TUD-W']:
+                           'TUD-W', 'FNG-SiC']:
                 test = testrun.MultipleTest(*args)
 
             elif fname == 'FNG':
