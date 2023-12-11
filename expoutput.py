@@ -110,10 +110,10 @@ class ExperimentalOutput(BenchmarkOutput):
         -------
         None.
         """
-        print(' Exctracting outputs...')
+        print(' Extracting outputs...')
         self._extract_outputs()
 
-        print(' Read experimental results....')
+        print(' Reading experimental results....')
         self._read_exp_results()
 
         print(' Dumping raw data...')
@@ -1482,6 +1482,7 @@ class ShieldingOutput(ExperimentalOutput):
 
     def _pp_excel_comparison(self):
 
+        fngsic_k = [0.212, 0.204, 0.202, 0.202]
         lib_names_dict = {}
         column_names = []
         column_names.append(('Exp', 'Value'))
@@ -1521,7 +1522,14 @@ class ShieldingOutput(ExperimentalOutput):
                         if mat != 'TLD':
                             vals = self.raw_data[t][4]['Value'].values[:len(x)]
                         else:
-                            vals = self.raw_data[t][6]['Value'].values[:len(x)]
+                            if self.testname == 'FNG-SiC':
+                                Dn=self.raw_data[t][16]['Value'].values[:len(x)]
+                                Dn_multiplied = [value * constant for value, constant in zip(Dn, fngsic_k)]
+                                Dp=self.raw_data[t][26]['Value'].values[:len(x)]
+                                Dt=[sum(pair) for pair in zip(Dn_multiplied, Dp)]
+                                vals=Dt
+                            else:
+                                vals = self.raw_data[t][6]['Value'].values[:len(x)]
                         df_tab[idx_col] = vals
                     elif idx_col[1] == 'C/E Error':
                         if mat != 'TLD':
