@@ -1481,8 +1481,13 @@ class ShieldingOutput(ExperimentalOutput):
         return None
 
     def _pp_excel_comparison(self):
+        """Produces the Excel document for comparison to experiment. 
+        """
 
-        fngsic_k = [0.212, 0.204, 0.202, 0.202]
+        # FNG SiC specific corrections/normalisations
+        fngsic_k = [0.212, 0.204, 0.202, 0.202] # Neutron sensitivity of TL detectors
+        fngsic_norm = 1.602E-13 # J/MeV
+        
         lib_names_dict = {}
         column_names = []
         column_names.append(('Exp', 'Value'))
@@ -1522,10 +1527,14 @@ class ShieldingOutput(ExperimentalOutput):
                         if mat != 'TLD':
                             vals = self.raw_data[t][4]['Value'].values[:len(x)]
                         else:
+                            # FNG SiC experiment measured the total dose
                             if self.testname == 'FNG-SiC':
-                                Dn=self.raw_data[t][16]['Value'].values[:len(x)]
+                                # Neutron dose
+                                Dn=(self.raw_data[t][16]['Value'].values[:len(x)]) * fngsic_norm
                                 Dn_multiplied = [value * constant for value, constant in zip(Dn, fngsic_k)]
-                                Dp=self.raw_data[t][26]['Value'].values[:len(x)]
+                                # Photon dose
+                                Dp=(self.raw_data[t][26]['Value'].values[:len(x)]) * fngsic_norm
+                                # Sum neutron and photon dose with neutron sensitivity as a function of depth 
                                 Dt=[sum(pair) for pair in zip(Dn_multiplied, Dp)]
                                 vals=Dt
                             else:
@@ -1535,19 +1544,34 @@ class ShieldingOutput(ExperimentalOutput):
                         if mat != 'TLD':
                             errs = self.raw_data[t][4]['Error'].values[:len(x)]
                         else:
-                            errs = self.raw_data[t][6]['Error'].values[:len(x)]
+                            if self.testname == 'FNG SiC':
+                                errs =np.sqrt(np.square(self.raw_data[t][16]['Error'].values[:len(x)]) + 
+                                              np.square(self.raw_data[t][26]['Error'].values[:len(x)]))
+                            else:
+                                errs = self.raw_data[t][6]['Error'].values[:len(x)]
                         vals1 = np.square(errs)
                         vals2 = np.square(exp_data_df.loc[:, 'Error'
                                                           ].to_numpy() / 100)
                         ce_err = np.sqrt(vals1 + vals2)
                         ce_err = ce_err.tolist()
                         df_tab[idx_col] = ce_err
+                    # Calculate C/E value
                     else:
                         if mat != 'TLD':
                             vals1 = self.raw_data[t][4]['Value'
                                                         ].values[:len(x)]
                         else:
-                            vals1 = self.raw_data[t][6]['Value'
+                            if self.testname == 'FNG SiC':   
+                                # Neutron dose
+                                Dn=(self.raw_data[t][16]['Value'].values[:len(x)]) * fngsic_norm
+                                Dn_multiplied = [value * constant for value, constant in zip(Dn, fngsic_k)]
+                                # Photon dose
+                                Dp=(self.raw_data[t][26]['Value'].values[:len(x)]) * fngsic_norm
+                                # Sum neutron and photon dose with neutron sensitivity as a function of depth 
+                                Dt=[sum(pair) for pair in zip(Dn_multiplied, Dp)]
+                                vals1=Dt
+                            else:
+                                vals1 = self.raw_data[t][6]['Value'
                                                         ].values[:len(x)]
                         vals2 = exp_data_df.loc[:, 'Reaction Rate'].to_numpy()
                         ratio = vals1 / vals2
@@ -1592,7 +1616,11 @@ class ShieldingOutput(ExperimentalOutput):
             if material != 'TLD':
                 title = self.testname + ' experiment, Foil: ' + material
             else:
-                title = self.testname + \
+                if self.testname == 'FNG-SiC':
+                    title = self.testname + \
+                    'experiment, Total absorbed dose in TLD detectors'
+                else:
+                    title = self.testname + \
                     ' experiment, Gamma absorbed dose in TLD-300 detectors'
             # Loop over selected libraries
             for lib in self.lib[1:]:
