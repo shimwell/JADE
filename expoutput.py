@@ -1589,7 +1589,7 @@ class ShieldingOutput(ExperimentalOutput):
 
     def _build_atlas(self, tmp_path, atlas):
         """
-        See ExperimentalOutput documentation
+        Build the Atlas (PDF) plots. See ExperimentalOutput documentation
         """
         # Set plot and axes details
         unit = '-'
