@@ -1486,7 +1486,9 @@ class ShieldingOutput(ExperimentalOutput):
 
         # FNG SiC specific corrections/normalisations
         fngsic_k = [0.212, 0.204, 0.202, 0.202] # Neutron sensitivity of TL detectors
-        fngsic_norm = 1.602E-13 # J/MeV
+        fngsic_norm = 1.602E-13 * 1000 # J/MeV * g/kg
+
+        fnghcpb_norm = 2.57042574E+07 #
         
         lib_names_dict = {}
         column_names = []
@@ -1537,14 +1539,24 @@ class ShieldingOutput(ExperimentalOutput):
                                 # Sum neutron and photon dose with neutron sensitivity as a function of depth 
                                 Dt=[sum(pair) for pair in zip(Dn_multiplied, Dp)]
                                 vals=Dt
+                            # FNG HCPB measured tritium activity
+                            elif self.testname =='FNG HCPB' and mat == 'H3':
+                                # Lithium 6
+                                Li6=(self.raw_data[t][84]['Value'].values[:len(x)]) * fnghcpb_norm
+                                # Lithium 7
+                                Li7=(self.raw_data[t][94]['Value'].values[:len(x)]) * fnghcpb_norm
+                                # Calculate total tritium activity per gram 
+                                At=[sum(pair) for pair in zip(Li6, Li7)]
+                                vals=At
                             else:
                                 vals = self.raw_data[t][6]['Value'].values[:len(x)]
+
                         df_tab[idx_col] = vals
                     elif idx_col[1] == 'C/E Error':
                         if mat != 'TLD':
                             errs = self.raw_data[t][4]['Error'].values[:len(x)]
                         else:
-                            if self.testname == 'FNG SiC':
+                            if self.testname == 'FNG-SiC':
                                 errs =np.sqrt(np.square(self.raw_data[t][16]['Error'].values[:len(x)]) + 
                                               np.square(self.raw_data[t][26]['Error'].values[:len(x)]))
                             else:
@@ -1561,7 +1573,7 @@ class ShieldingOutput(ExperimentalOutput):
                             vals1 = self.raw_data[t][4]['Value'
                                                         ].values[:len(x)]
                         else:
-                            if self.testname == 'FNG SiC':   
+                            if self.testname == 'FNG-SiC':   
                                 # Neutron dose
                                 Dn=(self.raw_data[t][16]['Value'].values[:len(x)]) * fngsic_norm
                                 Dn_multiplied = [value * constant for value, constant in zip(Dn, fngsic_k)]
