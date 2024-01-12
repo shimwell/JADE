@@ -1539,15 +1539,6 @@ class ShieldingOutput(ExperimentalOutput):
                                 # Sum neutron and photon dose with neutron sensitivity as a function of depth 
                                 Dt=[sum(pair) for pair in zip(Dn_multiplied, Dp)]
                                 vals=Dt
-                            # FNG HCPB measured tritium activity
-                            elif self.testname =='FNG HCPB' and mat == 'H3':
-                                # Lithium 6
-                                Li6=(self.raw_data[t][84]['Value'].values[:len(x)]) * fnghcpb_norm
-                                # Lithium 7
-                                Li7=(self.raw_data[t][94]['Value'].values[:len(x)]) * fnghcpb_norm
-                                # Calculate total tritium activity per gram 
-                                At=[sum(pair) for pair in zip(Li6, Li7)]
-                                vals=At
                             else:
                                 vals = self.raw_data[t][6]['Value'].values[:len(x)]
 
@@ -1558,7 +1549,7 @@ class ShieldingOutput(ExperimentalOutput):
                         else:
                             if self.testname == 'FNG-SiC':
                                 errs =np.sqrt(np.square(self.raw_data[t][16]['Error'].values[:len(x)]) + 
-                                              np.square(self.raw_data[t][26]['Error'].values[:len(x)]))
+                                              np.square(self.raw_data[t][26]['Error'].values[:len(x)])) 
                             else:
                                 errs = self.raw_data[t][6]['Error'].values[:len(x)]
                         vals1 = np.square(errs)
@@ -1581,7 +1572,7 @@ class ShieldingOutput(ExperimentalOutput):
                                 Dp=(self.raw_data[t][26]['Value'].values[:len(x)]) * fngsic_norm
                                 # Sum neutron and photon dose with neutron sensitivity as a function of depth 
                                 Dt=[sum(pair) for pair in zip(Dn_multiplied, Dp)]
-                                vals1=Dt
+                                vals1=Dt                                                    
                             else:
                                 vals1 = self.raw_data[t][6]['Value'
                                                         ].values[:len(x)]
@@ -1775,3 +1766,234 @@ class MultipleSpectrumOutput(SpectrumOutput):
             title = self.testname + ', ' + particle + ' ' + \
                 quantity
         return title
+
+class fnghcpboutput(ExperimentalOutput):
+
+    def _processMCNPdata(self, output):
+
+        return None
+
+    def _pp_excel_comparison(self):
+        """Produces the Excel document for comparison to experiment. 
+        """
+
+        fnghcpb_norm = 2.57042574E+07 # (decay constant * total neutrons)/ mass pellet
+        
+        lib_names_dict = {}
+        column_names = []
+        column_names.append(('Exp', 'Value'))
+        column_names.append(('Exp', 'Error'))
+        for lib in self.lib[1:]:
+            namelib = self.session.conf.get_lib_name(lib)
+            lib_names_dict[namelib] = lib
+            column_names.append((namelib, 'Value'))
+            column_names.append((namelib, 'C/E'))
+            column_names.append((namelib, 'C/E Error'))
+
+        names = ['Library', '']
+        column_index = pd.MultiIndex.from_tuples(column_names, names=names)
+        filepath = self.excel_path + '\\' + self.testname + '_CE_tables.xlsx'
+        writer = pd.ExcelWriter(filepath, engine='xlsxwriter')
+        for mat in self.inputs:
+            exp_folder = os.path.join(self.path_exp_res, mat)
+            exp_filename = self.testname + '_' + mat + '.csv'
+            exp_filepath = os.path.join(exp_folder, exp_filename)
+            exp_data_df = pd.read_csv(exp_filepath)
+            # Get experimental data and errors for the selected benchmark case
+            if mat == 'H3':
+                x = exp_data_df['Pellet'].values.tolist()
+                indexes = pd.Index(data=x, name='Pellet #')
+            else:
+                x = exp_data_df['Depth'].values.tolist()
+                indexes = pd.Index(data=x, name='Depth [cm]')
+
+            df_tab = pd.DataFrame(index=indexes, columns=column_index)
+            for idx_col in df_tab.columns.values.tolist():
+                if idx_col[0] == 'Exp':
+                    if idx_col[1] == 'Value':
+                        vals = exp_data_df.loc[:, 'Activity'].tolist()
+                        df_tab[idx_col] = vals
+                    else:
+                        vals = exp_data_df.loc[:, 'Error'].to_numpy() / 100
+                        vals = vals.tolist()
+                        df_tab[idx_col] = vals
+                else:
+                    t = (mat, lib_names_dict[idx_col[0]])
+                    if idx_col[1] == 'Value':
+                        if mat != 'H3':
+                            vals = self.raw_data[t][4]['Value'].values[:len(x)]
+                        else:
+                            # Total activity
+                            vals=[]
+                            for i in range(4):
+                                vals.extend((self.raw_data[t][84]['Value'].values[i::4]) * fnghcpb_norm)
+                            # Lithium 7
+                            #Li7=(self.raw_data[t][94]['Value'].values[:len(x)]) * fnghcpb_norm
+                            # Calculate total tritium activity per gram 
+                            #At=[sum(pair) for pair in zip(Li6, Li7)]
+
+                        df_tab[idx_col] = vals
+
+                    elif idx_col[1] == 'C/E Error':
+                        if mat != 'H3':
+                            errs = self.raw_data[t][4]['Error'].values[:len(x)]
+                        else:
+                            errs=[]
+                            for i in range(4):
+                                yerr= (self.raw_data[t][84]['Error'].values[i::4])
+                                errs.extend(yerr)
+                                #errs =np.sqrt(np.square(self.raw_data[t][84]['Error'].values[:len(x)]) + 
+                                #              np.square(self.raw_data[t][94]['Error'].values[:len(x)])) 
+
+                        vals1 = np.square(errs)
+                        vals2 = np.square(exp_data_df.loc[:, 'Error'
+                                                          ].to_numpy() / 100)
+                        ce_err = np.sqrt(vals1 + vals2)
+                        ce_err = ce_err.tolist()
+                        df_tab[idx_col] = ce_err
+                    # Calculate C/E value
+                    else:
+                        if mat!= 'H3':
+                            vals1 = self.raw_data[t][4]['Value'
+                                                        ].values[:len(x)]
+                        else:
+                            vals1=[]
+                            for i in range(4):
+                                vals1.extend(self.raw_data[t][84]['Value'].values[i::4] * fnghcpb_norm)
+                                                                                               
+                        vals2 = exp_data_df.loc[:, 'Activity'].to_numpy()
+                        ratio = vals1 / vals2
+                        ratio = ratio.tolist()
+                        df_tab[idx_col] = vals1 / vals2
+
+            # Assign worksheet title and put into Excel
+            conv_df = self._get_conv_df(mat, len(x))
+            sheet = self.testname.replace('-', ' ')
+            if mat != 'H3':
+                sheet_name = sheet + ', Foil {}'.format(mat)
+            else:
+                sheet_name = sheet + ' H3 activity'
+            df_tab.to_excel(writer, sheet_name=sheet_name)
+            conv_df.to_excel(writer, sheet_name=sheet_name, startrow=55)
+            # Close the Pandas Excel writer object and output the Excel file
+        writer.save()
+
+    def _build_atlas(self, tmp_path, atlas):
+        """
+        Build the Atlas (PDF) plots. See ExperimentalOutput documentation
+        """
+        # Set plot and axes details
+        fnghcpb_norm = 2.57042574E+07  # (decay constant * total neutrons)/ mass pellet
+        
+        for material in tqdm(self.inputs):
+            # Tritium Activity
+            if material == 'H3':
+                unit = 'Bq/g'
+                quantity = 'Activity'                
+                for i in range(4):
+                    data = []
+                    y=[]
+                    exp_folder = os.path.join(self.path_exp_res, material)
+                    exp_filename = self.testname + '_' + material + '.csv'
+                    exp_filepath = os.path.join(exp_folder, exp_filename)
+                    exp_data_df = pd.read_csv(exp_filepath)
+                    
+                    xlabel = 'Pellet no.'
+                    x = exp_data_df['Pellet'].values[:12]
+
+                    y = [exp_data_df['Activity'].values[i * 12: (i + 1) * 12] ]
+                    err = [exp_data_df['Error'].values[i * 12: (i + 1) * 12] / 100]
+                    
+                    ylabel_exp='Experiment'
+                    data_exp = {'x': x, 'y': y, 'err': err, 'ylabel': ylabel_exp}
+                    data.append(data_exp)
+
+                    for lib in self.lib[1:]:
+
+                        y=[]
+                        err=[]
+                        # Lithium 6
+                        ycalc=self.raw_data[(material,lib)][84]['Value'].values[i::4] * fnghcpb_norm
+                        # Lithium 7
+                        # Li7=self.raw_data[(material,lib)][94]['Value'].values[i::4] * fnghcpb_norm
+                        # Calculate total tritium activity per gram 
+                        #ycalc=[sum(pair) for pair in zip(Li6, Li7)]
+
+                        yerr = np.square(self.raw_data[(material,lib)][84]['Error'].values[i::4])
+
+                        y.append(ycalc)
+                        err.append(yerr)
+
+                        ylabel_calc = self.session.conf.get_lib_name(lib)
+                        data_calc = {'x': x, 'y': y, 'err': err, 'ylabel': ylabel_calc}
+                        data.append(data_calc)
+
+                    title = f'ENEA{2*(i+1)} pellet stack'
+                    outname = 'tmp'
+                    plot = Plotter(data, title, tmp_path, outname, quantity, unit, xlabel, self.testname)
+                    img_path = plot.plot('Discrete Experimental 2')
+                    atlas.insert_img(img_path)    
+            # Foils 
+            else: 
+                unit = '-'
+                quantity = ['C/E'] 
+                data = []
+                exp_folder = os.path.join(self.path_exp_res, material)
+                exp_filename = self.testname + '_' + material + '.csv'
+                exp_filepath = os.path.join(exp_folder, exp_filename)
+                exp_data_df = pd.read_csv(exp_filepath)
+
+                # Get experimental data and errors for the selected benchmark case
+                x = exp_data_df['Depth'].values
+                y = []
+                err = []
+                y.append(exp_data_df['Reaction Rate'].values)
+                err.append(exp_data_df['Error'].values / 100)
+                # Append experimental data to data list (sent to plotter)
+                ylabel = 'Experiment'
+                data_exp = {'x': x, 'y': y, 'err': err, 'ylabel': ylabel}
+                data.append(data_exp)
+
+                title = self.testname + ' experiment, Foil: ' + material
+
+                # Loop over selected libraries
+                for lib in self.lib[1:]:
+                    # Get library name, assign title to the plot
+                    ylabel = self.session.conf.get_lib_name(lib)
+                    y = []
+                    err = []
+
+                    ycalc = self.raw_data[(material, lib)
+                                    ][4]['Value'].values[:len(x)]
+                    y.append(ycalc)
+
+                    yerr = self.raw_data[(material, lib)
+                                    ][4]['Error'].values[:len(x)]
+                    err.append(yerr)
+
+                    # Append computational data to data list(to be sent to plotter)
+                    data_comp = {'x': x, 'y': y, 'err': err, 'ylabel': ylabel}
+                    data.append(data_comp)
+
+                outname = 'tmp'
+                plot = Plotter(data, title, tmp_path, outname, quantity, unit,
+                            xlabel, self.testname)
+                img_path = plot.plot('Waves')
+                atlas.insert_img(img_path)
+        return atlas            
+
+    def _get_conv_df(self, mat, size):
+        conv_df = pd.DataFrame()
+        for lib in self.lib[1:]:
+            if mat != 'H3':
+                max = self.raw_data[(mat, lib)][4]['Error'].values[:size].max()
+                avg = self.raw_data[(mat, lib)][4]['Error'
+                                                   ].values[:size].mean()
+            else:
+                max = self.raw_data[(mat, lib)][84]['Error'].values[:size].max()
+                avg = self.raw_data[(mat, lib)][84]['Error'
+                                                   ].values[:size].mean()
+            library = self.session.conf.get_lib_name(lib)
+            conv_df.loc['Max Error', library] = max
+            conv_df.loc['Average Error', library] = avg
+        return conv_df

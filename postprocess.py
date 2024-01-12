@@ -98,13 +98,21 @@ def _get_output(action, testname, lib, session):
             print(exp_pp_message)
             return False
 
-    elif testname in ['FNG-BKT', 'FNG-W', 'ASPIS-Fe88', 'FNG-SiC', 'FNG-HCPB']:
+    elif testname in ['FNG-BKT', 'FNG-W', 'ASPIS-Fe88', 'FNG-SiC']:
         if action == 'compare':
             out = expo.ShieldingOutput(lib, testname, session,
                                        multiplerun=True)
         elif action == 'pp':
             print(exp_pp_message)
             return False
+        
+    elif testname == 'FNG-HCPB':
+        if action == 'compare':
+            out = expo.fnghcpboutput(lib, testname, session, multiplerun=True)
+        elif action == 'pp':
+            print(exp_pp_message)
+            return False
+
 
     elif testname == 'FNG':
         if action == 'compare':
