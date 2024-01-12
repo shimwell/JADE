@@ -83,7 +83,8 @@ def executeBenchmarksRoutines(session, lib, exp=False):
                             'FNG Tungsten', 
                             'ASPIS Iron-88 benchmark',
                             'FNG SiC', 
-                            'FNG HCPB']:
+                            'FNG HCPB',
+                            'ASPIS PCA Replica']:
                 var = {'00c': lib, '34y': '34y'}
             else:
                 var = lib
