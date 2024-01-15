@@ -45,7 +45,8 @@ TALLY_NORMALIZATION = {'Tiara-BC': 'lethargy',
                        'Oktavian': 'lethargy',
                        'TUD-Fe': 'energy bins',
                        'TUD-W': 'energy bins',
-                       'TUD-FNG': 'energy bins'}
+                       'TUD-FNG': 'energy bins',
+                       'ASPIS-PCA-Replica': 'lethargy'}
 
 
 class ExperimentalOutput(BenchmarkOutput):
@@ -1487,8 +1488,6 @@ class ShieldingOutput(ExperimentalOutput):
         # FNG SiC specific corrections/normalisations
         fngsic_k = [0.212, 0.204, 0.202, 0.202] # Neutron sensitivity of TL detectors
         fngsic_norm = 1.602E-13 * 1000 # J/MeV * g/kg
-
-        fnghcpb_norm = 2.57042574E+07 #
         
         lib_names_dict = {}
         column_names = []
