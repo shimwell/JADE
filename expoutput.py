@@ -1593,6 +1593,10 @@ class ShieldingOutput(ExperimentalOutput):
         """
         Build the Atlas (PDF) plots. See ExperimentalOutput documentation
         """
+        # FNG SiC specific corrections/normalisations
+        fngsic_k = [0.212, 0.204, 0.202, 0.202] # Neutron sensitivity of TL detectors
+        fngsic_norm = 1.602E-13 * 1000 # J/MeV * g/kg
+
         # Set plot and axes details
         unit = '-'
         quantity = ['C/E']
@@ -1620,7 +1624,7 @@ class ShieldingOutput(ExperimentalOutput):
             else:
                 if self.testname == 'FNG-SiC':
                     title = self.testname + \
-                    'experiment, Total absorbed dose in TLD detectors'
+                    ' experiment, Total absorbed dose in TLD detectors'
                 else:
                     title = self.testname + \
                     ' experiment, Gamma absorbed dose in TLD-300 detectors'
@@ -1634,15 +1638,28 @@ class ShieldingOutput(ExperimentalOutput):
                     v = self.raw_data[(material, lib)
                                       ][4]['Value'].values[:len(x)]
                 else:
-                    v = self.raw_data[(material, lib)
+                    if self.testname == 'FNG-SiC':   
+                        # Neutron dose
+                        Dn=(self.raw_data[(material,lib)][16]['Value'].values[:len(x)]) * fngsic_norm
+                        Dn_multiplied = [value * constant for value, constant in zip(Dn, fngsic_k)]
+                        # Photon dose
+                        Dp=(self.raw_data[(material,lib)][26]['Value'].values[:len(x)]) * fngsic_norm
+                        # Sum neutron and photon dose with neutron sensitivity as a function of depth 
+                        v=[sum(pair) for pair in zip(Dn_multiplied, Dp)]                  
+                    else:
+                        v = self.raw_data[(material, lib)
                                       ][6]['Value'].values[:len(x)]
                 y.append(v)
                 if material != 'TLD':
                     v = self.raw_data[(material, lib)
                                       ][4]['Error'].values[:len(x)]
                 else:
-                    v = self.raw_data[(material, lib)
-                                      ][6]['Error'].values[:len(x)]
+                    if self.testname == 'FNG-SiC':
+                        v =np.sqrt(np.square(self.raw_data[(material,lib)][16]['Error'].values[:len(x)]) + 
+                                        np.square(self.raw_data[(material,lib)][26]['Error'].values[:len(x)])) 
+                    else:
+                        v = self.raw_data[(material, lib)
+                                        ][6]['Error'].values[:len(x)]
                 err.append(v)
                 # Append computational data to data list(to be sent to plotter)
                 data_comp = {'x': x, 'y': y, 'err': err, 'ylabel': ylabel}
@@ -1810,7 +1827,10 @@ class fnghcpboutput(ExperimentalOutput):
             for idx_col in df_tab.columns.values.tolist():
                 if idx_col[0] == 'Exp':
                     if idx_col[1] == 'Value':
-                        vals = exp_data_df.loc[:, 'Activity'].tolist()
+                        if mat == 'H3':
+                            vals = exp_data_df.loc[:, 'Activity'].tolist()
+                        else:
+                            vals = exp_data_df.loc[:, 'Reaction Rate'].tolist()
                         df_tab[idx_col] = vals
                     else:
                         vals = exp_data_df.loc[:, 'Error'].to_numpy() / 100
@@ -1860,7 +1880,10 @@ class fnghcpboutput(ExperimentalOutput):
                             for i in range(4):
                                 vals1.extend(self.raw_data[t][84]['Value'].values[i::4] * fnghcpb_norm)
                                                                                                
-                        vals2 = exp_data_df.loc[:, 'Activity'].to_numpy()
+                        if mat == 'H3':
+                            vals2 = exp_data_df.loc[:, 'Activity'].to_numpy()
+                        else:
+                            vals2 = exp_data_df.loc[:, 'Reaction Rate'].to_numpy()
                         ratio = vals1 / vals2
                         ratio = ratio.tolist()
                         df_tab[idx_col] = vals1 / vals2
@@ -1943,6 +1966,7 @@ class fnghcpboutput(ExperimentalOutput):
                 exp_data_df = pd.read_csv(exp_filepath)
 
                 # Get experimental data and errors for the selected benchmark case
+                xlabel = 'Shielding thickness [cm]'
                 x = exp_data_df['Depth'].values
                 y = []
                 err = []
