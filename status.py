@@ -26,7 +26,8 @@ import re
 
 MULTI_TEST = ['Sphere', 'Oktavian', 'SphereSDDR', 'FNG', 'Tiara-BC',
               'Tiara-BS', 'Tiara-FC', 'FNS-TOF', 'FNG-BKT', 'FNG-W', 'ASPIS-Fe88',
-              'TUD-Fe', 'TUD-W', 'FNG-SiC', 'FNG-HCPB', 'ASPIS-PCA-Replica']
+              'TUD-Fe', 'TUD-W', 'FNG-SiC', 'FNG-HCPB', 'ASPIS-PCA-Replica',
+              'ASPIS-PCA-Replica_RR']
 EXP_TAG = 'Exp'
 
 

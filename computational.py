@@ -84,7 +84,7 @@ def executeBenchmarksRoutines(session, lib, exp=False):
                             'ASPIS Iron-88 benchmark',
                             'FNG SiC', 
                             'FNG HCPB',
-                            'ASPIS PCA Replica']:
+                            'ASPIS PCA Replica RR']:
                 var = {'00c': lib, '34y': '34y'}
             else:
                 var = lib
@@ -108,7 +108,8 @@ def executeBenchmarksRoutines(session, lib, exp=False):
 
             elif fname in ['Oktavian', 'Tiara-BC', 'Tiara-BS', 'Tiara-FC',
                            'FNS-TOF', 'FNG-BKT', 'FNG-W', 'ASPIS-Fe88', 'TUD-Fe',
-                           'TUD-W', 'FNG-SiC', 'FNG-HCPB', 'ASPIS-PCA-Replica']:
+                           'TUD-W', 'FNG-SiC', 'FNG-HCPB', 'ASPIS-PCA-Replica',
+                           'ASPIS-PCA-Replica_RR']:
                 test = testrun.MultipleTest(*args)
 
             elif fname == 'FNG':
