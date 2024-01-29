@@ -62,7 +62,7 @@ def _get_output(action, testname, lib, session):
     elif testname == 'SphereSDDR':
         out = spho.SphereSDDRoutput(lib, testname, session)
 
-    elif testname in ['Oktavian', 'ASPIS-PCA-Replica']:
+    elif testname in ['Oktavian', 'ASPIS-PCA-Replica_flux']:
         if action == 'compare':
             out = expo.SpectrumOutput(lib, testname, session, multiplerun=True)
         elif action == 'pp':

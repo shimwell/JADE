@@ -109,7 +109,7 @@ def executeBenchmarksRoutines(session, lib, exp=False):
 
             elif fname in ['Oktavian', 'Tiara-BC', 'Tiara-BS', 'Tiara-FC',
                            'FNS-TOF', 'FNG-BKT', 'FNG-W', 'ASPIS-Fe88', 'TUD-Fe',
-                           'TUD-W', 'FNG-SiC', 'FNG-HCPB', 'ASPIS-PCA-Replica',
+                           'TUD-W', 'FNG-SiC', 'FNG-HCPB', 'ASPIS-PCA-Replica_flux',
                            'ASPIS-PCA-Replica_RR', 'FNG-SS']:
                 test = testrun.MultipleTest(*args)
 

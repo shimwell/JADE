@@ -46,7 +46,7 @@ TALLY_NORMALIZATION = {'Tiara-BC': 'lethargy',
                        'TUD-Fe': 'energy bins',
                        'TUD-W': 'energy bins',
                        'TUD-FNG': 'energy bins',
-                       'ASPIS-PCA-Replica': 'lethargy'}
+                       'ASPIS-PCA-Replica_flux': 'lethargy'}
 
 
 class ExperimentalOutput(BenchmarkOutput):
