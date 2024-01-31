@@ -23,6 +23,8 @@ along with JADE.  If not, see <http://www.gnu.org/licenses/>.
 """
 import os
 import re
+import sys
+import functools
 
 MULTI_TEST = [
     'Sphere',
@@ -69,7 +71,40 @@ class Status():
         # Initialize pp trees
         self.comparison_tree, self.single_tree = self.update_pp_status()
 
+    def update_run_status(self):
+        """
+        Read/Update the run tree status. All files produced by runs are
+        registered
+
+        Returns
+        -------
+        libraries : dic
+            dictionary of dictionaries representing the run tree
+
+        """
+
+        # Create nested dictionaries to store info on libraries, tests, codes
+        # and files.
+        libraries = {}
+        rootdir = self.run_path.rstrip(os.sep)
+        start = rootdir.rfind(os.sep) + 1
+        for i, (path, dirs, files) in enumerate(os.walk(rootdir)):
+            if i > 0:
+                folders = path[start:].split(os.sep)[1:]
+                subdir = dict.fromkeys(files)
+                parent = functools.reduce(dict.get, folders[:-1], libraries)
+                if len(files) == 0:
+                    parent[folders[-1]] = subdir
+                else:
+                    parent[folders[-1]] = files
+
+        # Update tree
+        self.run_tree = libraries
+
+        return libraries
+    
     # Updated by S. Bradnam to include new level, code, between test and zaid.
+    '''
     def update_run_status(self):
         """
         Read/Update the run tree status. All files produced by runs are
@@ -113,7 +148,7 @@ class Status():
         self.run_tree = libraries
 
         return libraries
-
+    '''
     # Updated by S. Bradnam, UKAEA to include new level, code.
     def update_pp_status(self) -> tuple:
         """
