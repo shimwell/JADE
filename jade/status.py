@@ -301,6 +301,30 @@ class Status():
 
         return cp
 
+    def get_unfinished(self, lib, test):
+        """
+        Identify cases to run for rerun or continuation purposes
+
+        Parameters
+        ----------
+        lib : str
+            library to check.
+        test : str
+            test to check.
+
+        Returns
+        -------
+        unfinished : dict
+            cases not run, index by code.
+
+        """
+        
+        # Populate dictionaries
+        self.update_run_status()
+        
+                
+
+    
     def get_unfinished_zaids(self, lib) -> tuple:
         """
         Identify zaids to run for rerun or continuation purposes
