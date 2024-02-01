@@ -149,6 +149,71 @@ class Status():
 
         return libraries
     '''
+    
+    def read_structure_tree(self, path, depth) -> tuple:
+        """
+        Read a generic tree structure
+
+        Parameters
+        ----------
+        path : str
+            Top level path to be tested
+
+        depth : int
+            Recursive depth to define structure tree down to
+
+        Returns
+        -------
+        structure_tree : dic
+            Dictionary registering all test post processed for each
+            comparison of libraries.
+
+        """
+        # Create nested dictionaries to store info on libraries, tests, codes
+        # and files.
+        structure_tree = {}
+        rootdir = path.rstrip(os.sep)
+        start = rootdir.rfind(os.sep) + 1
+        for i, (path, dirs, files) in enumerate(os.walk(rootdir)):
+            if i > 0:
+                folders = path[start:].split(os.sep)[1:]
+                d = len(folders)
+                if d <= depth:
+                    subdir = dict.fromkeys(dirs)
+                    parent = functools.reduce(dict.get, folders[:-1], structure_tree)                
+                    if d < depth:
+                        parent[folders[-1]] = subdir
+                    elif d == depth:
+                        parent[folders[-1]] = dirs                    
+
+        return structure_tree
+    
+    def update_pp_status(self) -> tuple:
+        """
+        Read/Update the post processing tree status. All files produced by
+        post processing registered
+
+        Returns
+        -------
+        comparison_tree : dic
+            Dictionary registering all test post processed for each
+            comparison of libraries.
+        single_tree : dic
+            Dictionary registering all test post processed performed for
+            single libraries.
+        """
+        
+        # Update Trees
+        comparison_tree = self.read_structure_tree(self.comparison_path, 3)
+        single_tree = self.read_structure_tree(self.single_path, 2)
+
+        self.comparison_tree = comparison_tree
+        self.single_tree = single_tree
+
+        return comparison_tree, single_tree            
+    
+    
+    '''
     # Updated by S. Bradnam, UKAEA to include new level, code.
     def update_pp_status(self) -> tuple:
         """
@@ -194,7 +259,8 @@ class Status():
         self.single_tree = single_tree
 
         return comparison_tree, single_tree
-
+    '''
+    
     def get_path(self, tree: str, itinerary: list) -> str:
         """
         Get the resulting path of an itinery on one tree
