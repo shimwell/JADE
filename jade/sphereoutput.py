@@ -295,9 +295,8 @@ class SphereOutput(BenchmarkOutput):
         errors = []
         stat_checks = []
         outputs = {}
-        test_path_mcnp = os.path.join(self.test_path, "mcnp")
-        for folder in os.listdir(test_path_mcnp):
-            results_path = os.path.join(test_path_mcnp, folder)
+        for folder in os.listdir(self.test_path):
+            results_path = os.path.join(self.test_path, folder, "mcnp")
             pieces = folder.split("_")
             # Get zaid
             zaidnum = pieces[-2]
@@ -341,7 +340,8 @@ class SphereOutput(BenchmarkOutput):
         stat_checks = []
         outputs = {}
         test_path_serpent = os.path.join(self.test_path, "serpent")
-        for folder in os.listdir(test_path_serpent):
+        for folder in os.listdir(self.test_path):
+            results_path = os.path.join(self.test_path, folder, "serpent")
             # Call parser here
             continue
         return outputs, results, errors, stat_checks
@@ -352,9 +352,8 @@ class SphereOutput(BenchmarkOutput):
         errors = []
         # stat_checks = []
         outputs = {}
-        test_path_openmc = os.path.join(self.test_path, "openmc")
-        for folder in os.listdir(test_path_openmc):
-            results_path = os.path.join(test_path_openmc, folder)
+        for folder in os.listdir(self.test_path):
+            results_path = os.path.join(self.test_path, folder, "openmc")
             pieces = folder.split("_")
             # Get zaid
             zaidnum = pieces[-2]
