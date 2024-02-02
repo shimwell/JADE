@@ -188,9 +188,10 @@ class LibManager:
         libraries = []
         if code != 'openmc':
             for lib in self.libraries:
-                xsdir = self.data[code][lib]
-                if lib in xsdir.find_table(zaid, mode='default-fast'):
-                    libraries.append(lib)
+                if lib in self.data[code]:
+                    xsdir = self.data[code][lib]
+                    if lib in xsdir.find_table(zaid, mode='default-fast'):
+                        libraries.append(lib)
         else:
             raise NotImplementedError('{} not implemented yet'.format(code))
 

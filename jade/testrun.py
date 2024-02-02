@@ -814,14 +814,14 @@ class SphereTest(Test):
             shutil.rmtree(motherdir)
         os.mkdir(motherdir)
 
-        if self.d1s:
-            os.mkdir(os.path.join(motherdir, "d1s"))
-        if self.mcnp:
-            os.mkdir(os.path.join(motherdir, "mcnp"))
-        if self.serpent:
-            os.mkdir(os.path.join(motherdir, "serpent"))
-        if self.openmc:
-            os.mkdir(os.path.join(motherdir, "openmc"))
+        #if self.d1s:
+        #    os.mkdir(os.path.join(motherdir, "d1s"))
+        #if self.mcnp:
+        #    os.mkdir(os.path.join(motherdir, "mcnp"))
+        #if self.serpent:
+        #    os.mkdir(os.path.join(motherdir, "serpent"))
+        #if self.openmc:
+        #    os.mkdir(os.path.join(motherdir, "openmc"))
 
         # GET SETTINGS
         # Zaids
@@ -953,6 +953,13 @@ class SphereTest(Test):
         zaid = mat.Zaid(1, zaid[:-3], zaid[-3:], lib)
         name, formula = libmanager.get_zaidname(zaid)
 
+        outfile, zaiddir = self._get_zaidtestname(
+            testname, zaid, formula, addtag=addtag
+        )
+        
+        zaidpath = os.path.join(motherdir, zaiddir)
+        os.mkdir(zaidpath)
+
         if self.d1s:
             # Add d1s function here
             pass
@@ -981,11 +988,7 @@ class SphereTest(Test):
 #            if os.path.exists(directoryVRT):
 #                newinp.add_edits(edits_file)  # Add variance reduction
 
-            # Write new input file
-            outfile, outdir = self._get_zaidtestname(
-                testname, zaid, formula, addtag=addtag
-            )
-            outpath = os.path.join(motherdir, "mcnp", outdir)
+            outpath = os.path.join(zaidpath, "mcnp")
             os.mkdir(outpath)
             outinpfile = os.path.join(outpath, outfile)
             newinp.write(outinpfile)
@@ -1012,11 +1015,7 @@ class SphereTest(Test):
             # assign stop card
             newinp.add_stopCard(nps)
 
-            # Write new input file
-            outfile, outdir = self._get_zaidtestname(
-                testname, zaid, formula, addtag=addtag
-            )
-            outpath = os.path.join(motherdir, "serpent", outdir)
+            outpath = os.path.join(zaidpath, "serpent")
             os.mkdir(outpath)
             outinpfile = os.path.join(outpath, outfile)
             newinp.write(outinpfile)
@@ -1037,10 +1036,7 @@ class SphereTest(Test):
             newinp.add_stopCard(nps)
 
             # Write new input file
-            outfile, outdir = self._get_zaidtestname(
-                testname, zaid, formula, addtag=addtag
-            )
-            outpath = os.path.join(motherdir, "openmc", outdir)
+            outpath = os.path.join(zaidpath, "openmc")
             os.mkdir(outpath)
             newinp.write(outpath, libmanager)
 
@@ -1093,6 +1089,11 @@ class SphereTest(Test):
             lib = self.lib
         truename = material.name
 
+        outfile = testname + "_" + truename + "_"
+        matdir = testname + "_" + truename
+        matpath = os.path.join(motherdir, matdir)
+        os.mkdir(matpath)
+        
         if self.d1s:
             # Add d1s function here
             pass
@@ -1124,9 +1125,7 @@ class SphereTest(Test):
 #                newinp.add_edits(edits_file)  # Add variance reduction
 
             # Write new input file
-            outfile = testname + "_" + truename + "_"
-            outdir = testname + "_" + truename
-            outpath = os.path.join(motherdir, "mcnp", outdir)
+            outpath = os.path.join(matpath, "mcnp")
             os.mkdir(outpath)
             outinpfile = os.path.join(outpath, outfile)
             newinp.write(outinpfile)
@@ -1151,10 +1150,7 @@ class SphereTest(Test):
             # add stop card
             newinp.add_stopCard(self.nps)  # , self.ctme, self.precision)
 
-            # Write new input file
-            outfile = testname + "_" + truename + "_"
-            outdir = testname + "_" + truename
-            outpath = os.path.join(motherdir, "serpent", outdir)
+            outpath = os.path.join(matpath, "serpent")
             os.mkdir(outpath)
             outinpfile = os.path.join(outpath, outfile)
             newinp.write(outinpfile)
@@ -1173,10 +1169,7 @@ class SphereTest(Test):
             # add stop card
             newinp.add_stopCard(self.nps)  # , self.ctme, self.precision)
 
-            # Write new input file
-            outfile = testname + "_" + truename + "_"
-            outdir = testname + "_" + truename
-            outpath = os.path.join(motherdir, "openmc", outdir)
+            outpath = os.path.join(matpath, "openmc")
             os.mkdir(outpath)
             newinp.write(outpath, libmanager)
 
