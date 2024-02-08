@@ -520,6 +520,97 @@ class Status():
 
         return ans
 
+
+    def check_lib_code_test_run(self, lib, code, test):
+        """
+        Check if a library has been run. To be considered run a meshtally or
+        meshtal have to be produced (for MCNP). Only active benchmarks (specified in
+        the configuration file) are checked.
+
+        Parameters
+        ----------
+        lib : str
+            Library to check.
+        code : str
+            Code to check.
+        test : str
+            Test to check.
+
+        Returns
+        -------
+        run : bool
+            True if test has been run in specified code
+
+        """
+        run = False
+        if lib in self.run_tree:
+            if test in self.run_tree[lib]:
+                if code in self.run_tree[lib][test].keys():
+                    run = self.check_test_run(self.run_tree[lib][test][code], code)
+                else:
+                    for key, value in self.run_tree[lib][test].items():
+                        if isinstance(value, dict):
+                            if code in value.keys():
+                                run = self.check_test_run(value[code], code)
+                                if run:
+                                    break
+        return run
+
+   
+    def check_lib_run(self, lib, session, exp=False):
+        """
+        Check if a library has been run. To be considered run a meshtally or
+        meshtal have to be produced (for MCNP). Only active benchmarks (specified in
+        the configuration file) are checked.
+
+        Parameters
+        ----------
+        lib : str
+            Library to check.
+        session : Session
+            Jade Session.
+        config_option: str
+            Specifies the configuration option onto which the check for tests
+            "to perform" are registered.
+        exp: boolean
+            if True checks the experimental benchmarks. Default is False
+
+        Returns
+        -------
+        tests_ran : dict
+            True if all benchmark have been run for the library.
+
+        """
+        # Correctly parse the lib input. It may be a dic than only the first
+        # dic value needs to be considered
+        pat_libs = re.compile(r'"\d\d[a-zA-Z]"')
+        if lib[0] == "{":
+            libs = pat_libs.findall(lib)
+            lib = libs[1][1:-1]
+
+        # Update Tree
+        self.update_run_status()
+
+        # Populate dictionary for each test to perform
+        to_perform = {"mcnp": session.check_active_tests("MCNP", exp=exp),
+                      "serpent": session.check_active_tests("Serpent", exp=exp),
+                      "openmc": session.check_active_tests("OpenMC", exp=exp),
+                      "d1s": session.check_active_tests("d1S", exp=exp)}
+
+        tests_ran = {}
+
+        for code in to_perform:
+            for test in to_perform[code]:
+                run = self.check_lib_code_test_run(lib, code, test)
+                if run:
+                    if code in tests_ran:
+                        tests_ran[code].append(test)
+                    else:
+                        tests_ran[code] = [test]
+
+        return tests_ran    
+        
+    '''
     def check_lib_run(
             self,
             lib,
@@ -558,6 +649,7 @@ class Status():
 
         # Update Tree
         self.update_run_status()
+
         # Check if/what is already run
         if exp:
             config = self.config.exp_default
@@ -617,6 +709,7 @@ class Status():
                         pass
 
         return test_runned
+    '''
 
     def check_pp_single(self, lib, session, tree="single", exp=False):
         """

@@ -1187,32 +1187,22 @@ class SphereTest(Test):
 
         directory = self.run_dir
 
-        if self.d1s:
-            d1s_directory = os.path.join(directory, "d1s")
-            if pd.isnull(config.d1s_exec) is not True:
-                for folder in tqdm(os.listdir(d1s_directory)):
-                    run_directory = os.path.join(d1s_directory, folder)
+        for folder in tqdm(os.listdir(directory)):
+            if self.d1s:
+                run_directory = os.path.join(directory, folder, "d1s")
+                if pd.isnull(config.d1s_exec) is not True:
                     self.run_d1s(config, libmanager, folder + "_", run_directory)
-
-        if self.mcnp:
-            mcnp_directory = os.path.join(directory, "mcnp")
-            if pd.isnull(config.mcnp_exec) is not True:
-                for folder in tqdm(os.listdir(mcnp_directory)):
-                    run_directory = os.path.join(mcnp_directory, folder)
+            if self.mcnp:
+                run_directory = os.path.join(directory, folder, "mcnp")
+                if pd.isnull(config.mcnp_exec) is not True:
                     self.run_mcnp(config, libmanager, folder + "_", run_directory, runoption)
-
-        if self.serpent:
-            serpent_directory = os.path.join(directory, "serpent")
-            if pd.isnull(config.serpent_exec) is not True:
-                for folder in tqdm(os.listdir(serpent_directory)):
-                    run_directory = os.path.join(serpent_directory, folder)
+            if self.serpent:
+                run_directory = os.path.join(directory, folder, "serpent")
+                if pd.isnull(config.serpent_exec) is not True:
                     self.run_serpent(config, libmanager, folder + "_", run_directory, runoption)
-
-        if self.openmc:
-            openmc_directory = os.path.join(directory, "openmc")
-            if pd.isnull(config.openmc_exec) is not True:
-                for folder in tqdm(os.listdir(openmc_directory)):
-                    run_directory = os.path.join(openmc_directory, folder)
+            if self.openmc:
+                run_directory = os.path.join(directory, folder, "openmc")
+                if pd.isnull(config.openmc_exec) is not True:
                     self.run_openmc(config, libmanager, folder + "_", run_directory, runoption)
 
 
