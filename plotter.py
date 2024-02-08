@@ -235,11 +235,8 @@ class Plotter:
                 outp = self._exp_points_group_plot_CE(test_name=self.testname)
 
         # --- Experimental Points Plot ---
-        elif plot_type == 'Discreet Experimental points':
+        elif plot_type == 'Discrete Experimental points':
             outp = self._exp_points_discreet_plot()
-
-        elif plot_type == 'Discrete Experimental 2':
-            outp = self._exp_points_discreet_plot_2()
 
         # --- Grouped bars chart ---
         elif plot_type == 'Grouped bars':
@@ -855,113 +852,6 @@ class Plotter:
 
         # Common for all axes
         for ax in axes:
-
-            ax.tick_params(which='major', width=1.00, length=5)
-            ax.tick_params(which='minor', width=0.75, length=2.50)
-
-            # Grid
-            ax.grid('True', which='major', linewidth=0.50)
-            ax.grid('True', which='minor', linewidth=0.20)
-
-        return self._save()
-    
-    def _exp_points_discreet_plot_2(self, y_scale='linear', lowerlimit=0.8,
-                                  upperlimit=1.2):
-        
-        # Aditional plot for using discrete experimental points for HCPB 
-        # benchmark. Move to _exp_points_discreet_plot.
-        """
-        Plot a simple plot that compares experimental data points with
-        computational calculation. Differently from _exp_points_plot here
-        the computational results are reported in a descreet format.
-
-        Also a C/E plot is added
-
-        Parameters
-        ----------
-        y_scale: str
-            acceppted values are the ones of matplotlib.axes.Axes.set_yscale
-            e.g. "linear", "log", "symlog", "logit", ... The default is 'log'.
-        upperlimit: float
-            set the y upper limit for the ratio plot
-        lowerlimit: float
-            set the y lower limit for the ratio plot
-
-        Returns
-        -------
-        outpath : str/path
-            path to the saved image
-
-        """
-        # Assign y axis label
-        ylabel = f"{self.quantity} [{self.unit}]"
-
-        # Grid info
-        gridspec_kw = {'height_ratios': [3, 1], 'hspace': 0.13}
-        figsize = (18, 13.5)
-
-        # Initialize plot
-        fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, sharex=True,
-                                 figsize=figsize,
-                                 gridspec_kw=gridspec_kw)
-
-        ref_y = np.array(self.data[0]['y'])
-
-        # Plot of calculated and experimental data
-        for i, libdata in enumerate(self.data):
-
-            x, y, err, label = libdata['x'], libdata['y'][0], libdata['err'][0], libdata['ylabel']
-
-            ax1.errorbar(x, y, yerr=err, linestyle='',
-                         capsize=10, marker=self.markers[i], color=self.colors[i], label=label)
-
-        # Plot C/E subplot
-        for i, libdata in enumerate(self.data[1:]):
-            x = libdata['x']
-            ref_y = np.array(self.data[0]['y'])
-            ycalc = np.array(libdata['y'][0])
-            label = libdata['ylabel']
-
-            y = ycalc/ref_y
-            y=y.flatten()
-
-            # Compute the plot limits
-            norm, upper, lower = _get_limits(lowerlimit, upperlimit,
-                                             y, libdata['x'])
-            # This Should ensure that the x labels order is kept fixed
-            ax2.scatter(x, np.ones(len(x)), alpha=0)
-
-            # Plot everything
-            ax2.scatter(norm[0], norm[1], color=self.colors[i+1],
-                        marker=self.markers[i+1], label=label)
-            ax2.scatter(upper[0], upper[1], marker=CARETUPBASE,
-                        c=self.colors[i+1])
-            ax2.scatter(lower[0], lower[1], marker=CARETDOWNBASE,
-                        c=self.colors[i+1])
-
-        # --- Plot details ---
-        # ax 1 details
-        ax1.set_yscale(y_scale)
-        ax1.set_title(self.title)
-        ax1.set_ylabel(ylabel)
-        ax1.legend(loc='best')
-
-        # ax 2 details
-
-        ax2.set_ylabel('C/E')
-        ax2.set_xlabel(self.xlabel)
-        ax2.axhline(y=1, linestyle='--', color='black')
-        yticks = np.arange(0, 2.5, 0.2)
-        ax2.set_yticks(yticks)
-        plt.setp(ax2.get_xticklabels(), rotation=45, ha="right",
-                 rotation_mode="anchor")
-        ax2.axhline(lowerlimit, color='red', linewidth=0.5)
-        ax2.axhline(upperlimit, color='red', linewidth=0.5)
-        toadd = (upperlimit-lowerlimit)/8
-        ax2.set_ylim(bottom=lowerlimit-toadd, top=upperlimit+toadd)
-
-        # Common for all axes
-        for ax in (ax1, ax2):
 
             ax.tick_params(which='major', width=1.00, length=5)
             ax.tick_params(which='minor', width=0.75, length=2.50)

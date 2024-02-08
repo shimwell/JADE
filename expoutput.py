@@ -553,7 +553,7 @@ class FNGOutput(ExperimentalOutput):
             plot = Plotter(
                 data, title, tmp_path, outname, quantity, unit, xlabel, self.testname
             )
-            img_path = plot.plot("Discreet Experimental points")
+            img_path = plot.plot("Discrete Experimental points")
             # Insert the image in the atlas
             atlas.insert_img(img_path)
 
@@ -2035,7 +2035,8 @@ class fnghcpboutput(ExperimentalOutput):
                 quantity = "Activity"
                 for i in range(4):
                     data = []
-                    y = []
+                    #y = []
+                    #err = []
                     exp_folder = os.path.join(self.path_exp_res, material)
                     exp_filename = self.testname + "_" + material + ".csv"
                     exp_filepath = os.path.join(exp_folder, exp_filename)
@@ -2044,17 +2045,16 @@ class fnghcpboutput(ExperimentalOutput):
                     xlabel = "Pellet no."
                     x = list(range(1, 13))
 
-                    y = [exp_data_df["Activity"].values[i * 12 : (i + 1) * 12]]
-                    err = [exp_data_df["Error"].values[i * 12 : (i + 1) * 12] / 100]
+                    y = exp_data_df["Activity"].values[i * 12 : (i + 1) * 12]
+                    err = exp_data_df["Error"].values[i * 12 : (i + 1) * 12] / 100
 
                     ylabel_exp = "Experiment"
                     data_exp = {"x": x, "y": y, "err": err, "ylabel": ylabel_exp}
                     data.append(data_exp)
 
                     for lib in self.lib[1:]:
-
-                        y = []
-                        err = []
+                        #y = []
+                        #err = []
                         # Total tritium production Li6 + Li7
                         ycalc = self.raw_data[(material, lib)][84]["Value"].values[i::4]
 
@@ -2062,10 +2062,10 @@ class fnghcpboutput(ExperimentalOutput):
                             self.raw_data[(material, lib)][84]["Error"].values[i::4]
                         )
 
-                        y.append(ycalc)
-                        err.append(yerr)
+                        y = ycalc
+                        err = yerr
 
-                        ylabel_calc = self.session.conf.get_lib_name(lib)
+                        ylabel_calc = self.session.conf.get_lib_name(lib)                     
                         data_calc = {"x": x, "y": y, "err": err, "ylabel": ylabel_calc}
                         data.append(data_calc)
 
@@ -2081,7 +2081,7 @@ class fnghcpboutput(ExperimentalOutput):
                         xlabel,
                         self.testname,
                     )
-                    img_path = plot.plot("Discrete Experimental 2")
+                    img_path = plot.plot("Discrete Experimental points")
                     atlas.insert_img(img_path)
             # Foils
             else:
@@ -2095,13 +2095,13 @@ class fnghcpboutput(ExperimentalOutput):
 
                 # Get experimental data and errors for the selected benchmark case
                 xlabel = "Shielding thickness [cm]"
-                x = exp_data_df["Depth"].values
+                x = list(exp_data_df["Depth"].values)
                 y = []
                 err = []
                 y.append(exp_data_df["Reaction Rate"].values)
                 err.append(exp_data_df["Error"].values / 100)
                 # Append experimental data to data list (sent to plotter)
-                ylabel = "Experiment"
+                ylabel = "Experiment"              
                 data_exp = {"x": x, "y": y, "err": err, "ylabel": ylabel}
                 data.append(data_exp)
 
