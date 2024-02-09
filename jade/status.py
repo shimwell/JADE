@@ -800,8 +800,7 @@ class Status():
         # Check if libraries have been run
         flag_not_run = False
         for lib in libs:
-            test_run = self.check_lib_run(
-                lib, session, "Post-Processing", exp=exp)
+            test_run = self.check_lib_run(lib, session, exp=exp)
             if len(test_run) == 0:  # TODO not checking for each benchmark
                 flag_not_run = True
                 lib_not_run = lib
