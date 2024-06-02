@@ -121,61 +121,36 @@ def postprocessBenchmark(session, lib: str, code: str, testnames: list) -> None:
 def _get_output(action, code, testname, lib, session):
     exp_pp_message = "\n No single pp is foreseen for experimental benchmarks"
 
-    if testname == "Sphere":
-        out = spho.SphereOutput(lib, code, testname, session)
+    output_classes = {
+        "Sphere": spho.SphereOutput,
+        "SphereSDDR": spho.SphereSDDRoutput,
+        "Oktavian": expo.SpectrumOutput,
+        "Tiara-BC": expo.MultipleSpectrumOutput,
+        "FNS-TOF": expo.MultipleSpectrumOutput,
+        "TUD-Fe": expo.MultipleSpectrumOutput,
+        "TUD-W": expo.MultipleSpectrumOutput,
+        "TUD-FNG": expo.MultipleSpectrumOutput,
+        "Tiara-FC": expo.TiaraFCOutput,
+        "Tiara-BS": expo.TiaraBSOutput,
+        "FNG-BKT": expo.ShieldingOutput,
+        "FNG-W": expo.ShieldingOutput,
+        "ASPIS-Fe88": expo.ShieldingOutput,
+        "FNG": expo.FNGOutput
+    }
 
-    elif testname == "SphereSDDR":
-        out = spho.SphereSDDRoutput(lib, code, testname, session)
+    multiplerun_tests = [
+        "Oktavian", "Tiara-BC", "FNS-TOF", "TUD-Fe", "TUD-W", "Tiara-FC",
+        "Tiara-BS", "FNG-BKT", "FNG-W", "ASPIS-Fe88", "FNG"
+    ]
 
-    elif testname in ["Oktavian"]:
+    if testname in output_classes:
         if action == "compare":
-            out = expo.SpectrumOutput(lib, code, testname, session, multiplerun=True)
+            out = output_classes[testname](
+                lib, code, testname, session, multiplerun=testname in multiplerun_tests
+            )
         elif action == "pp":
             print(exp_pp_message)
             return False
-
-    elif testname in ["Tiara-BC", "FNS-TOF", "TUD-Fe", "TUD-W"]:
-        if action == "compare":
-            out = expo.MultipleSpectrumOutput(lib, code, testname, session, multiplerun=True)
-        elif action == "pp":
-            print(exp_pp_message)
-            return False
-
-    elif testname in ["TUD-FNG"]:
-        if action == "compare":
-            out = expo.MultipleSpectrumOutput(lib, code, testname, session)
-        elif action == "pp":
-            print(exp_pp_message)
-            return False
-
-    elif testname == "Tiara-FC":
-        if action == "compare":
-            out = expo.TiaraFCOutput(lib, code, testname, session, multiplerun=True)
-        elif action == "pp":
-            print(exp_pp_message)
-            return False
-
-    elif testname == "Tiara-BS":
-        if action == "compare":
-            out = expo.TiaraBSOutput(lib, code, testname, session, multiplerun=True)
-        elif action == "pp":
-            print(exp_pp_message)
-            return False
-
-    elif testname in ["FNG-BKT", "FNG-W", "ASPIS-Fe88"]:
-        if action == "compare":
-            out = expo.ShieldingOutput(lib, code, testname, session, multiplerun=True)
-        elif action == "pp":
-            print(exp_pp_message)
-            return False
-
-    elif testname == "FNG":
-        if action == "compare":
-            out = expo.FNGOutput(lib, code, testname, session, multiplerun=True)
-        elif action == "pp":
-            print(exp_pp_message)
-            return False
-
     else:
         out = bencho.BenchmarkOutput(lib, code, testname, session)
 
